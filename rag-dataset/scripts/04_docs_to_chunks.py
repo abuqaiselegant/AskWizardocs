@@ -2,8 +2,8 @@ import os
 import json
 import hashlib
 
-input_file = "data/processed/docs.jsonl"
-output_file = "data/processed/chunks.jsonl"
+input_file = "rag-dataset/data/processed/docs.jsonl"
+output_file = "rag-dataset/data/processed/chunks.jsonl"
 
 os.makedirs("data/processed", exist_ok=True)
 

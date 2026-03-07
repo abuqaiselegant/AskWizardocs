@@ -7,7 +7,7 @@ sitemap_url = "https://docs.langchain.com/sitemap.xml"
 LIMIT = None
 # Download sitemap
 response = requests.get(sitemap_url)
-response.raise_for_status()
+# response.raise_for_status()
 
 xml_text = response.text
 
@@ -16,6 +16,10 @@ root = ET.fromstring(xml_text)
 
 # Namespace for sitemap
 ns = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
+
+# i can also do like this for automatically getting the namespace:
+# namespace = root.tag.split('}')[0].strip('{'})
+# ns = {"sm": namespace}
 
 urls = []
 

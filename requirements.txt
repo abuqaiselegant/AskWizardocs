@@ -7,3 +7,4 @@ tiktoken
 chromadb
 python-dotenv
 rank-bm25
+cohere

@@ -20,6 +20,8 @@ Input:  query string
 Output: list of chunk dicts ranked by combined RRF score
 """
 
+# add this import at the top of hybrid_retriever.py
+from src.retrieval.reranker import rerank
 from src.retrieval.bm25_retriever import search as bm25_search
 from src.retrieval.vector_retriever import search as vector_search
 
@@ -82,16 +84,40 @@ def search(query: str, k: int = 10) -> list[dict]:
 
     return fused[:k]
 
+def search_with_rerank(query: str) -> list[dict]:
+    """
+    Full pipeline: hybrid retrieval → reranking.
+    This is the main entry point for Phase 4 (generation).
+
+    Returns top 5 chunks, correctly ordered by true relevance.
+    """
+    # get top 20 from hybrid
+    candidates = search(query, k=20)
+
+    # rerank to top 5
+    return rerank(query, candidates)
+
 
 # ── Quick test ────────────────────────────────────────────────────────────────
+# if __name__ == "__main__":
+#     query = "How do LangChain agents work?"
+#     results = search(query, k=5)
+
+#     print(f"Query: {query}\n")
+#     for i, r in enumerate(results):
+#         print(f"--- Result {i+1} (RRF score: {r['rrf_score']}) ---")
+#         print(f"Title: {r['title']}")
+#         print(f"URL:   {r['url']}")
+#         print(f"Text:  {r['text'][:200]}...")
+#         print()
+
 if __name__ == "__main__":
     query = "How do LangChain agents work?"
-    results = search(query, k=5)
 
-    print(f"Query: {query}\n")
-    for i, r in enumerate(results):
-        print(f"--- Result {i+1} (RRF score: {r['rrf_score']}) ---")
-        print(f"Title: {r['title']}")
-        print(f"URL:   {r['url']}")
-        print(f"Text:  {r['text'][:200]}...")
-        print()
+    print("=== HYBRID ONLY (top 5) ===")
+    for i, r in enumerate(search(query, k=5)):
+        print(f"{i+1}. {r['title']} (rrf: {r['rrf_score']})")
+
+    print("\n=== HYBRID + RERANK (top 5) ===")
+    for i, r in enumerate(search_with_rerank(query)):
+        print(f"{i+1}. {r['title']} (rerank: {r['rerank_score']})")

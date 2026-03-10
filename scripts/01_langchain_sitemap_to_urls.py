@@ -40,3 +40,11 @@ with open(out_path, "w", encoding="utf-8") as f:
     for url in urls:
         f.write(url + "\n")
 print(f"Done! Saved {len(urls)} URLs -> {out_path}")
+
+
+
+## here i have first scrapped all the xml text,(it has namespace style, which will be used for parsing)
+## now we will store all the urls, which are inside the loc nested under url, stripping the whitespace around it, in array
+## this urls then write in file as a new line.
+## we have to take or duplicate urls(using set)
+## output path 

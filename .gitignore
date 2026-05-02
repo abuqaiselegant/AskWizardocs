@@ -11,3 +11,6 @@ PLAN.md
 # Claude
 .claude/
 CLAUDE.md
+
+# Evaluation intermediates
+src/evaluation/eval_results.jsonl

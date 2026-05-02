@@ -1,0 +1,95 @@
+AskMyDocs — Project Summary
+============================
+
+WHAT IT IS
+----------
+A production-grade RAG (Retrieval-Augmented Generation) system that ingests documentation,
+indexes it, and answers questions with citations. Currently targeting LangChain docs, but
+the architecture is generic.
+
+
+CURRENT PHASE: Phase 3 Complete → Entering Phase 4
+---------------------------------------------------
+You have a fully working retrieval pipeline. The system can find the most relevant chunks
+for any query. What's missing is the "answer" part — generating a response from those chunks.
+
+
+WHAT'S BEEN BUILT (Phases 1–3)
+-------------------------------
+
+Phase 1 — Ingestion (Done)
+- Scraped 671 LangChain doc pages via sitemap
+- Split into 3,422 chunks (1200 chars, 200-char overlap)
+- Embedded with OpenAI text-embedding-3-small, stored in ChromaDB (57 MB)
+
+Phase 2 — Hybrid Retrieval (Done)
+- BM25 sparse index (keyword search) via rank-bm25
+- Vector search via ChromaDB
+- RRF (Reciprocal Rank Fusion, k=60) merges both ranked lists → top-20
+
+Phase 3 — Reranking (Done)
+- Cohere rerank-english-v3.0 cross-encoder rescores the top-20 → top-5
+- Full pipeline callable: search_with_rerank(query) → top-5 chunks with scores
+
+
+WHAT'S NOT BUILT YET (Phases 4–6)
+-----------------------------------
+
+Phase 4 — Generation + Citations (Next)
+- Anthropic Claude integration in src/generation/ (currently empty)
+- Format top-5 chunks as [1]...[2]... context
+- Enforce citation-only answers via prompt
+- Parse [N] citations from response, validate no hallucinations
+- Requires: ANTHROPIC_API_KEY
+
+Phase 5 — Evaluation + CI Gate
+- 50-question golden dataset (data/golden_qa.jsonl)
+- Ragas evaluation with faithfulness >= 0.85 threshold
+- GitHub Actions CI gate: fails if faithfulness drops
+
+Phase 6 — API / UI / Docker
+- FastAPI /ask and /ingest endpoints
+- Streamlit UI for Q&A and document upload
+- Docker Compose: docker compose up → full working app
+
+
+ARCHITECTURE / DATA FLOW
+-------------------------
+
+Sitemap → URLs → HTML → Docs → Chunks → Embed → ChromaDB
+                                              └─ BM25 Index
+
+Query → [Vector + BM25] → RRF Fusion (top-20) → Cohere Rerank (top-5) → [Phase 4: Claude LLM] → Cited Answer
+
+
+TECH STACK
+----------
+
+Layer               Tool
+---------           ----
+Scraping            Requests, Trafilatura, BeautifulSoup
+Embeddings          OpenAI text-embedding-3-small
+Vector Store        ChromaDB
+Sparse Search       rank-bm25
+Reranking           Cohere rerank-english-v3.0
+Generation (plan)   Anthropic Claude
+API (planned)       FastAPI
+UI (planned)        Streamlit
+Deploy (planned)    Docker Compose
+
+
+GIT TIMELINE
+------------
+
+Feb 11  → initial LangChain scrape
+Feb 24  → ChromaDB + chunk embeddings (Phase 1 done)
+Mar  5  → BM25 + vector + RRF retrieval (Phase 2 done)
+Mar 10  → Cohere reranking (Phase 3 done)
+Mar 10  → code comment polish (stable, ready for Phase 4)
+
+
+WHAT TO DO NEXT
+---------------
+Phase 4 is the critical blocker — everything else (eval, UI, API) depends on generation
+working first. The src/generation/ directory exists but is empty. Wire in Anthropic Claude,
+format the retrieved chunks as numbered context, and parse citations from the response.

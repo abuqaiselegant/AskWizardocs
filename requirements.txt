@@ -13,3 +13,4 @@ langchain-openai
 fastapi
 uvicorn[standard]
 python-multipart
+PyJWT

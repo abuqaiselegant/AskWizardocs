@@ -9,7 +9,7 @@ function goSection(sectionId, go) {
   }, 120);
 }
 
-function Nav({ go, onTweaks }) {
+function Nav({ go, toggleTheme, theme }) {
   return (
     <nav className="wd-nav">
       <button className="wd-logo" onClick={() => go("landing")}>
@@ -23,9 +23,9 @@ function Nav({ go, onTweaks }) {
         <a href="/docs" target="_blank" rel="noreferrer">Docs ↗</a>
       </div>
       <div className="wd-nav-actions">
-        {onTweaks && (
-          <button className="btn ghost nav-tweaks" onClick={onTweaks} title="Appearance">
-            <I.Settings size={15}/>
+        {toggleTheme && (
+          <button className="btn ghost nav-theme-toggle" onClick={toggleTheme} title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
+            {theme === "dark" ? <I.Sun size={15}/> : <I.Moon size={15}/>}
           </button>
         )}
         <button className="btn ghost" onClick={() => go("signin")}>Sign in</button>
@@ -52,81 +52,13 @@ function Nav({ go, onTweaks }) {
         }
         .wd-nav-links a:hover { color: var(--ink); }
         .wd-nav-actions { display:flex; gap: 10px; justify-self: end; align-items:center; }
-        .nav-tweaks { padding: 8px 10px; }
+        .nav-theme-toggle { padding: 8px 10px; }
         @media (max-width: 880px) {
           .wd-nav { grid-template-columns: 1fr auto; padding: 14px 20px; }
           .wd-nav-links { display:none; }
         }
       `}</style>
     </nav>
-  );
-}
-
-// Tweaks panel — exposed when host toggles edit mode
-function TweaksPanel({ open, onClose, tweaks, setTweaks }) {
-  if (!open) return null;
-  const accents = ["violet", "blue", "emerald", "amber", "rose"];
-  const swatch = { violet:"#8b7cf6", blue:"#6aa8ff", emerald:"#5ad1a4", amber:"#f2b06b", rose:"#f07c9e" };
-  return (
-    <div className="tweaks">
-      <div className="tweaks-head">
-        <div className="mono" style={{fontSize:11, letterSpacing:"0.1em", color:"var(--ink-3)"}}>TWEAKS</div>
-        <button onClick={onClose} aria-label="Close"><I.X size={14}/></button>
-      </div>
-      <div className="tweaks-row">
-        <label>Theme</label>
-        <div className="seg">
-          {["dark","light"].map(t => (
-            <button key={t} className={tweaks.theme===t ? "on" : ""} onClick={() => setTweaks({theme:t})}>{t}</button>
-          ))}
-        </div>
-      </div>
-      <div className="tweaks-row">
-        <label>Accent</label>
-        <div className="swatches">
-          {accents.map(a => (
-            <button key={a} className={"sw " + (tweaks.accent===a?"on":"")} style={{background: swatch[a]}} onClick={() => setTweaks({accent:a})} aria-label={a}/>
-          ))}
-        </div>
-      </div>
-      <div className="tweaks-row">
-        <label>Motion</label>
-        <div className="seg">
-          {["full","low","none"].map(m => (
-            <button key={m} className={tweaks.motion===m ? "on" : ""} onClick={() => setTweaks({motion:m})}>{m}</button>
-          ))}
-        </div>
-      </div>
-      <style>{`
-        .tweaks {
-          position: fixed; right: 20px; bottom: 20px; z-index: 200;
-          width: 280px;
-          background: var(--surface);
-          border: 1px solid var(--line-2);
-          border-radius: 14px;
-          padding: 14px;
-          box-shadow: 0 30px 80px rgba(0,0,0,0.45), 0 0 0 1px var(--line);
-          animation: pageIn .25s ease both;
-        }
-        .tweaks-head { display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px; }
-        .tweaks-row { display:flex; justify-content: space-between; align-items:center; padding: 8px 0; border-top: 1px dashed var(--line); }
-        .tweaks-row:nth-child(2) { border-top: 0; }
-        .tweaks-row label { font-size: 13px; color: var(--ink-2); }
-        .seg { display:inline-flex; background: var(--bg); border:1px solid var(--line); border-radius: 8px; padding: 2px; }
-        .seg button {
-          padding: 5px 10px; font-size: 12px; border-radius: 6px; color: var(--ink-2);
-          font-family: var(--font-mono);
-        }
-        .seg button.on { background: var(--surface-3); color: var(--ink); }
-        .swatches { display:inline-flex; gap: 6px; }
-        .sw {
-          width: 20px; height: 20px; border-radius: 50%;
-          outline: 2px solid transparent; outline-offset: 2px;
-          transition: outline-color .15s;
-        }
-        .sw.on { outline-color: var(--ink); }
-      `}</style>
-    </div>
   );
 }
 
@@ -540,7 +472,6 @@ function FloatingDocs({ intensity = "full" }) {
 }
 
 window.Nav = Nav;
-window.TweaksPanel = TweaksPanel;
 window.BookShelf = BookShelf;
 window.FloatingDocs = FloatingDocs;
 window.goSection = goSection;

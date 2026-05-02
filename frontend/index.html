@@ -11,12 +11,16 @@
 <script>
   window.TWEAKS = {
     "theme": "dark",
-    "accent": "violet",
+    "accent": "rose",
     "motion": "low"
   };
   // API base URL: empty string = same origin (when served via FastAPI at :8000).
   // Override to "http://localhost:8000" if opening this file directly in a browser.
   window.API_BASE = "";
+
+  // Supabase config — filled in from your Supabase project settings.
+  window.SUPABASE_URL      = "YOUR_SUPABASE_URL";
+  window.SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
 </script>
 
 <style>
@@ -32,10 +36,10 @@
     --ink-2: #b8b6b0;
     --ink-3: #78767a;
     --ink-4: #4a4854;
-    --accent: #8b7cf6;
-    --accent-2: #a594ff;
-    --accent-glow: rgba(139, 124, 246, 0.35);
-    --accent-soft: rgba(139, 124, 246, 0.08);
+    --accent: #f07c9e;
+    --accent-2: #ff9ab8;
+    --accent-glow: rgba(240, 124, 158, 0.35);
+    --accent-soft: rgba(240, 124, 158, 0.08);
     --good: #7dd3a3;
     --warn: #f5b57c;
     --danger: #f57c8b;
@@ -183,7 +187,7 @@
   }
 </style>
 </head>
-<body data-theme="dark" data-accent="violet" data-motion="full">
+<body data-theme="dark" data-accent="rose" data-motion="low">
 
 <div id="splash">
   <div class="splash-logo">Wizardocs<span style="color:var(--accent)">.</span></div>
@@ -191,6 +195,13 @@
 
 <div id="root"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // Initialize the Supabase client once, shared across all JSX files via window._supabase.
+  window._supabase = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>

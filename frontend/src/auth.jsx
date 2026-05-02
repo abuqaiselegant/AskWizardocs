@@ -1,6 +1,6 @@
-// Sign in / Sign up — shared split layout with animated book stack
+// Auth page — Google + GitHub OAuth only
 
-function AuthShell({ mode, go }) {
+function AuthShell({ go }) {
   return (
     <div className="auth page-enter">
       <div className="auth-left">
@@ -10,7 +10,7 @@ function AuthShell({ mode, go }) {
         </button>
 
         <div className="auth-form-wrap">
-          {mode === "signin" ? <SignIn go={go}/> : <SignUp go={go}/>}
+          <OAuthPanel go={go}/>
         </div>
 
         <div className="auth-foot mono">
@@ -18,6 +18,7 @@ function AuthShell({ mode, go }) {
           <a href="#" onClick={(e)=>{e.preventDefault(); go("landing");}}>← back to site</a>
         </div>
       </div>
+
       <div className="auth-right">
         <AuthShelfArt/>
       </div>
@@ -31,7 +32,6 @@ function AuthShell({ mode, go }) {
         .auth-left {
           padding: 32px 48px;
           display:flex; flex-direction: column; justify-content: space-between;
-          position: relative;
         }
         .auth-logo {
           display:inline-flex; align-items:center; gap:10px;
@@ -41,20 +41,124 @@ function AuthShell({ mode, go }) {
         .auth-foot { display:flex; justify-content: space-between; color: var(--ink-3); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
         .auth-foot a { color: var(--ink-2); }
         .auth-foot a:hover { color: var(--ink); }
-
         .auth-right {
-          position: relative;
-          overflow: hidden;
+          position: relative; overflow: hidden;
           background:
             radial-gradient(500px 300px at 70% 30%, var(--accent-soft), transparent 65%),
             linear-gradient(180deg, var(--bg-2), var(--bg));
           border-left: 1px solid var(--line);
         }
-
         @media (max-width: 880px) {
           .auth { grid-template-columns: 1fr; }
           .auth-right { display: none; }
         }
+      `}</style>
+    </div>
+  );
+}
+
+function OAuthPanel({ go }) {
+  const [loading, setLoading] = React.useState(null); // "google" | "github" | null
+  const [error, setError]     = React.useState(null);
+
+  const signIn = async (provider) => {
+    setLoading(provider);
+    setError(null);
+    const { error } = await window._supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: window.location.origin },
+    });
+    if (error) {
+      setError(error.message);
+      setLoading(null);
+    }
+    // on success the browser redirects — no further action needed here
+  };
+
+  return (
+    <div>
+      <div className="chip" style={{marginBottom: 14}}>
+        <span className="dot"/> 5,000 free chunks · no card
+      </div>
+
+      <h1 className="auth-h1">
+        Sign in to <span className="serif-it">Wizardocs</span>.
+      </h1>
+      <p className="auth-sub">
+        Your library is waiting — and it remembers where you left off.
+      </p>
+
+      <div className="oauth-btns">
+        <button
+          className="oauth-btn"
+          onClick={() => signIn("google")}
+          disabled={!!loading}
+        >
+          {loading === "google" ? <span className="spin-sm"/> : <I.Google size={18}/>}
+          <span>Continue with Google</span>
+        </button>
+
+        <button
+          className="oauth-btn"
+          onClick={() => signIn("github")}
+          disabled={!!loading}
+        >
+          {loading === "github" ? <span className="spin-sm"/> : <I.Github size={18}/>}
+          <span>Continue with GitHub</span>
+        </button>
+      </div>
+
+      {error && (
+        <p className="oauth-error mono">{error}</p>
+      )}
+
+      <p className="auth-note mono">
+        By continuing, you agree to the fair-use policy.
+        No password required.
+      </p>
+
+      <style>{`
+        .auth-h1 { font-family: var(--font-display); font-weight: 500; font-size: 36px; letter-spacing:-0.02em; margin: 10px 0 8px; }
+        .serif-it { font-family: var(--font-serif); font-style: italic; color: var(--accent); font-weight: 400; }
+        .auth-sub { color: var(--ink-2); font-size: 14.5px; margin-bottom: 32px; line-height: 1.5; }
+
+        .oauth-btns { display: flex; flex-direction: column; gap: 12px; }
+        .oauth-btn {
+          display: flex; align-items: center; justify-content: center; gap: 12px;
+          width: 100%;
+          padding: 14px 20px;
+          border: 1px solid var(--line-2);
+          border-radius: 12px;
+          background: var(--surface);
+          font-size: 15px; font-weight: 500;
+          transition: border-color .15s, background .15s, transform .1s;
+        }
+        .oauth-btn:hover:not(:disabled) { border-color: var(--accent); background: var(--surface-2); transform: translateY(-1px); }
+        .oauth-btn:active:not(:disabled) { transform: translateY(0); }
+        .oauth-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .oauth-error {
+          margin-top: 16px;
+          padding: 10px 14px;
+          background: color-mix(in oklab, var(--danger) 10%, var(--surface));
+          border: 1px solid color-mix(in oklab, var(--danger) 40%, var(--line));
+          border-radius: 8px;
+          font-size: 12px; color: var(--danger);
+        }
+        .auth-note {
+          margin-top: 24px;
+          font-size: 11px; color: var(--ink-4);
+          text-align: center; letter-spacing: 0.03em; line-height: 1.6;
+        }
+        .spin-sm {
+          width: 18px; height: 18px;
+          border: 2px solid rgba(255,255,255,0.2);
+          border-top-color: var(--ink);
+          border-radius: 50%;
+          animation: spin 0.7s linear infinite;
+          flex-shrink: 0;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
     </div>
   );
@@ -74,7 +178,6 @@ function AuthShelfArt() {
 
   return (
     <div className="authart">
-      {/* Orbiting doc spines */}
       <div className="auth-shelf">
         {Array.from({length:14}).map((_, i) => (
           <div key={i} className="spine-book" style={{
@@ -85,7 +188,6 @@ function AuthShelfArt() {
           }}/>
         ))}
       </div>
-      {/* Floating reply card */}
       <div className="auth-card" key={idx}>
         <div className="authcard-q mono">{quotes[idx].q}</div>
         <div className="authcard-a">
@@ -104,28 +206,19 @@ function AuthShelfArt() {
         .auth-shelf {
           position: absolute; inset: 0;
           display: flex; align-items:flex-end; justify-content: center;
-          gap: 4px; padding: 48px;
-          opacity: 0.6;
+          gap: 4px; padding: 48px; opacity: 0.6;
           mask-image: radial-gradient(ellipse at center, transparent 20%, black 60%);
         }
         .spine-book {
-          width: 18px;
-          border: 1px solid var(--line-2);
-          border-radius: 2px 2px 0 0;
+          width: 18px; border: 1px solid var(--line-2); border-radius: 2px 2px 0 0;
           animation: authbook 5s ease-in-out infinite;
         }
-        @keyframes authbook {
-          0%,100% { transform: translateY(0) }
-          50% { transform: translateY(-8px) }
-        }
+        @keyframes authbook { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-8px) } }
         .auth-card {
           position: relative; z-index: 2;
-          width: min(420px, 70%);
-          padding: 20px;
-          background: var(--surface);
-          border: 1px solid var(--line-2);
-          border-radius: 14px;
-          box-shadow: 0 40px 120px -20px rgba(0,0,0,0.6);
+          width: min(420px, 70%); padding: 20px;
+          background: var(--surface); border: 1px solid var(--line-2);
+          border-radius: 14px; box-shadow: 0 40px 120px -20px rgba(0,0,0,0.6);
           animation: cardIn .6s cubic-bezier(.2,.8,.2,1) both;
         }
         @keyframes cardIn { from {opacity:0; transform: translateY(10px)} to {opacity:1} }
@@ -133,13 +226,9 @@ function AuthShelfArt() {
         .authcard-q::before { content: "›  "; color: var(--accent); }
         .authcard-a { font-size: 14.5px; line-height: 1.55; color: var(--ink); margin-bottom: 12px; }
         .cite {
-          font-family: var(--font-mono);
-          font-size: 12px;
-          background: var(--accent-soft);
-          color: var(--accent);
-          padding: 1px 5px;
-          border-radius: 4px;
-          border: 1px solid var(--accent);
+          font-family: var(--font-mono); font-size: 12px;
+          background: var(--accent-soft); color: var(--accent);
+          padding: 1px 5px; border-radius: 4px; border: 1px solid var(--accent);
         }
         .authcard-src {
           display:inline-flex; align-items:center; gap: 6px;
@@ -152,162 +241,6 @@ function AuthShelfArt() {
           font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3);
         }
         .auth-tag .dot { width:6px; height:6px; border-radius:50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
-      `}</style>
-    </div>
-  );
-}
-
-function Field({ label, type="text", value, onChange, hint, right }) {
-  return (
-    <label className="field">
-      <div className="field-head">
-        <span>{label}</span>
-        {right}
-      </div>
-      <input type={type} value={value} onChange={(e)=>onChange(e.target.value)} placeholder={hint}/>
-      <style>{`
-        .field { display: block; margin-bottom: 14px; }
-        .field-head { display:flex; justify-content:space-between; align-items:center; font-size: 12px; color: var(--ink-2); margin-bottom: 6px; font-family: var(--font-mono); letter-spacing:0.02em; }
-        .field-head a { color: var(--ink-3); font-size: 11px; }
-        .field-head a:hover { color: var(--accent); }
-        .field input {
-          width: 100%;
-          padding: 12px 14px;
-          background: var(--surface);
-          border: 1px solid var(--line-2);
-          color: var(--ink);
-          border-radius: 10px;
-          font-size: 14.5px;
-          transition: border-color .15s, box-shadow .15s;
-        }
-        .field input:focus {
-          outline: none;
-          border-color: var(--accent);
-          box-shadow: 0 0 0 4px var(--accent-soft);
-        }
-        .field input::placeholder { color: var(--ink-4); }
-      `}</style>
-    </label>
-  );
-}
-
-function SocialRow() {
-  return (
-    <div className="social-row">
-      <button className="btn" style={{width:"100%", justifyContent:"center"}}><I.Google size={16}/> Google</button>
-      <button className="btn" style={{width:"100%", justifyContent:"center"}}><I.Github size={16}/> GitHub</button>
-      <style>{`
-        .social-row { display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
-      `}</style>
-    </div>
-  );
-}
-
-function Divider({ label }) {
-  return (
-    <div className="divider">
-      <span/><em className="mono">{label}</em><span/>
-      <style>{`
-        .divider { display:flex; align-items:center; gap: 10px; margin: 18px 0; }
-        .divider span { flex:1; height:1px; background: var(--line); }
-        .divider em { font-style: normal; font-size: 11px; color: var(--ink-3); letter-spacing: 0.1em; }
-      `}</style>
-    </div>
-  );
-}
-
-function SignIn({ go }) {
-  const [email, setEmail] = React.useState("");
-  const [pw, setPw] = React.useState("");
-  const [forgotSent, setForgotSent] = React.useState(false);
-  return (
-    <div>
-      <div className="chip" style={{marginBottom:14}}>
-        <span className="dot"/> Welcome back
-      </div>
-      <h1 className="auth-h1">
-        Sign in to <span className="serif-it">Wizardocs</span>.
-      </h1>
-      <p className="auth-sub">Your library is waiting — and it remembers where you left off.</p>
-
-      <SocialRow/>
-      <Divider label="or with email"/>
-      <Field label="Email" value={email} onChange={setEmail} hint="you@company.com"/>
-      <Field
-        label="Password"
-        type="password"
-        value={pw}
-        onChange={setPw}
-        hint="at least 12 characters"
-        right={
-          forgotSent
-            ? <span style={{color:"var(--good)", fontSize:11}}>✓ Check your email</span>
-            : <a href="#" onClick={(e)=>{ e.preventDefault(); if(email.trim()) setForgotSent(true); }}>Forgot?</a>
-        }
-      />
-      <label className="remember">
-        <input type="checkbox" defaultChecked/>
-        <span>Keep me signed in for 30 days</span>
-      </label>
-      <button className="btn primary" style={{width:"100%", justifyContent:"center", marginTop:18, padding:"14px"}}
-              onClick={()=>go("chat")}>
-        Sign in <I.Arrow size={14}/>
-      </button>
-      <p className="auth-foot-line mono">
-        New here? <a href="#" onClick={(e)=>{e.preventDefault(); go("signup");}}>Create an account →</a>
-      </p>
-
-      <style>{`
-        .auth-h1 { font-family: var(--font-display); font-weight: 500; font-size: 36px; letter-spacing:-0.02em; margin: 10px 0 8px; }
-        .serif-it { font-family: var(--font-serif); font-style: italic; color: var(--accent); font-weight: 400; }
-        .auth-sub { color: var(--ink-2); font-size: 14.5px; margin-bottom: 28px; }
-        .remember { display:flex; align-items:center; gap:10px; color: var(--ink-2); font-size: 13px; cursor:pointer; user-select:none; }
-        .remember input { accent-color: var(--accent); }
-        .auth-foot-line { margin-top: 24px; font-size: 12px; color: var(--ink-3); text-align:center; letter-spacing:0.05em; }
-        .auth-foot-line a { color: var(--accent); }
-      `}</style>
-    </div>
-  );
-}
-
-function SignUp({ go }) {
-  const [name, setName] = React.useState("");
-  const [email, setEmail] = React.useState("");
-  const [pw, setPw] = React.useState("");
-  const strength = Math.min(100, pw.length * 12);
-  return (
-    <div>
-      <div className="chip" style={{marginBottom:14}}>
-        <span className="dot"/> 5,000 free chunks · no card
-      </div>
-      <h1 className="auth-h1">
-        Start your <span className="serif-it">workspace</span>.
-      </h1>
-      <p className="auth-sub">You'll be asking your first indexed question in under three minutes.</p>
-
-      <SocialRow/>
-      <Divider label="or with email"/>
-      <Field label="Full name" value={name} onChange={setName} hint="Ada Lovelace"/>
-      <Field label="Work email" value={email} onChange={setEmail} hint="you@company.com"/>
-      <Field label="Password" type="password" value={pw} onChange={setPw} hint="at least 12 characters"/>
-      <div className="pw-meter">
-        <div className="pw-bar" style={{width: `${strength}%`, background: strength>60 ? "var(--good)" : strength>30 ? "var(--warn)" : "var(--danger)"}}/>
-      </div>
-      <label className="remember" style={{marginTop:12}}>
-        <input type="checkbox" defaultChecked/>
-        <span>I agree to the terms and fair-use policy</span>
-      </label>
-      <button className="btn primary" style={{width:"100%", justifyContent:"center", marginTop:18, padding:"14px"}}
-              onClick={()=>go("chat")}>
-        Create workspace <I.Arrow size={14}/>
-      </button>
-      <p className="auth-foot-line mono">
-        Already using Wizardocs? <a href="#" onClick={(e)=>{e.preventDefault(); go("signin");}}>Sign in →</a>
-      </p>
-
-      <style>{`
-        .pw-meter { height: 3px; border-radius: 2px; background: var(--surface-3); margin-top: 4px; overflow: hidden; }
-        .pw-bar { height: 100%; transition: width .2s, background .2s; }
       `}</style>
     </div>
   );

@@ -1,0 +1,141 @@
+-- ============================================================
+-- Wizardocs — Supabase schema
+-- Paste this entire file into the Supabase SQL editor and run.
+-- ============================================================
+
+-- 1. users_profile
+--    Extends Supabase auth.users with app-specific fields.
+--    Auto-created on first sign-in via the trigger below.
+create table if not exists public.users_profile (
+  id          uuid primary key references auth.users (id) on delete cascade,
+  name        text,
+  plan        text not null default 'free',   -- 'free' | 'pro' | 'team'
+  created_at  timestamptz not null default now()
+);
+
+-- 2. workspaces
+--    One workspace auto-created per user on signup (user = workspace for now).
+create table if not exists public.workspaces (
+  id          uuid primary key default gen_random_uuid(),
+  owner_id    uuid not null references public.users_profile (id) on delete cascade,
+  name        text not null default 'My workspace',
+  created_at  timestamptz not null default now()
+);
+
+-- 3. chats
+create table if not exists public.chats (
+  id            uuid primary key default gen_random_uuid(),
+  workspace_id  uuid not null references public.workspaces (id) on delete cascade,
+  title         text not null default 'New conversation',
+  created_at    timestamptz not null default now()
+);
+
+-- 4. messages
+create table if not exists public.messages (
+  id            uuid primary key default gen_random_uuid(),
+  chat_id       uuid not null references public.chats (id) on delete cascade,
+  role          text not null check (role in ('user', 'assistant')),
+  content       text not null,
+  sources_json  jsonb,          -- [{"number":1,"title":"...","url":"..."}]
+  created_at    timestamptz not null default now()
+);
+
+-- 5. query_usage  (for 100 queries/month free tier)
+create table if not exists public.query_usage (
+  user_id       uuid not null references public.users_profile (id) on delete cascade,
+  period_start  date not null default date_trunc('month', now())::date,
+  count         int  not null default 0,
+  primary key (user_id, period_start)
+);
+
+-- 6. chunk_usage  (for 5,000 indexed chunks free tier — used in Phase 5)
+create table if not exists public.chunk_usage (
+  workspace_id    uuid primary key references public.workspaces (id) on delete cascade,
+  chunks_indexed  int not null default 0
+);
+
+-- ============================================================
+-- Row Level Security
+-- ============================================================
+
+alter table public.users_profile  enable row level security;
+alter table public.workspaces      enable row level security;
+alter table public.chats           enable row level security;
+alter table public.messages        enable row level security;
+alter table public.query_usage     enable row level security;
+alter table public.chunk_usage     enable row level security;
+
+-- users_profile: own row only
+create policy "users_profile_own" on public.users_profile
+  for all using (auth.uid() = id);
+
+-- workspaces: own workspaces only
+create policy "workspaces_own" on public.workspaces
+  for all using (auth.uid() = owner_id);
+
+-- chats: own chats (via workspace ownership)
+create policy "chats_own" on public.chats
+  for all using (
+    workspace_id in (
+      select id from public.workspaces where owner_id = auth.uid()
+    )
+  );
+
+-- messages: own messages (via chat -> workspace ownership)
+create policy "messages_own" on public.messages
+  for all using (
+    chat_id in (
+      select c.id from public.chats c
+      join public.workspaces w on w.id = c.workspace_id
+      where w.owner_id = auth.uid()
+    )
+  );
+
+-- query_usage: own row only
+create policy "query_usage_own" on public.query_usage
+  for select using (auth.uid() = user_id);
+
+-- chunk_usage: own workspace only
+create policy "chunk_usage_own" on public.chunk_usage
+  for select using (
+    workspace_id in (
+      select id from public.workspaces where owner_id = auth.uid()
+    )
+  );
+
+-- ============================================================
+-- Trigger: auto-create profile + workspace on first sign-in
+-- ============================================================
+
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  new_workspace_id uuid;
+begin
+  -- create profile
+  insert into public.users_profile (id, name)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name', split_part(new.email, '@', 1))
+  );
+
+  -- create default workspace
+  insert into public.workspaces (owner_id, name)
+  values (new.id, 'My workspace')
+  returning id into new_workspace_id;
+
+  -- seed chunk_usage for the workspace
+  insert into public.chunk_usage (workspace_id) values (new_workspace_id);
+
+  return new;
+end;
+$$;
+
+-- attach trigger to auth.users
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();

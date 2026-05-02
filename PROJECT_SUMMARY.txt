@@ -1,95 +1,628 @@
-AskMyDocs — Project Summary
-============================
+================================================================================
+WIZARDOCS — COMPLETE PROJECT SUMMARY
+Last updated: 2026-05-03
+================================================================================
 
-WHAT IT IS
-----------
-A production-grade RAG (Retrieval-Augmented Generation) system that ingests documentation,
-indexes it, and answers questions with citations. Currently targeting LangChain docs, but
-the architecture is generic.
+────────────────────────────────────────────────────────────────────────────────
+1. WHAT IS THIS PROJECT
+────────────────────────────────────────────────────────────────────────────────
+
+Wizardocs is a domain-specific RAG (Retrieval-Augmented Generation) Q&A system
+for ML and LLM documentation. Users ask a question, the system retrieves the
+most relevant chunks from an indexed documentation corpus, and GPT-4o-mini
+generates a grounded answer with inline citations ([1], [2]) that link back to
+the exact source chunk.
+
+The product is positioned as a SaaS tool:
+  Free tier  — up to 5,000 indexed chunks, 100 queries/month
+  Pro        — $29/month, unlimited chunks + queries, bring-your-own docs
+  Team       — $99/month, up to 20 seats, SSO/SAML
+
+Current corpus: LangChain documentation only (3,235 deduplicated chunks).
+Roadmap corpus: HuggingFace, MLflow, RAG writing, Vector DB blogs.
+Future: users upload their own docs (bring-your-own-docs).
+
+────────────────────────────────────────────────────────────────────────────────
+2. CURRENT TECH STACK
+────────────────────────────────────────────────────────────────────────────────
+
+BACKEND (Python / FastAPI)
+  api/main.py                 — FastAPI app, single /ask endpoint + /health
+  src/retrieval/
+    vector_retriever.py       — ChromaDB vector search (text-embedding-3-small)
+    bm25_retriever.py         — BM25 keyword search
+    hybrid_retriever.py       — RRF fusion of BM25 + vector, then reranks
+    reranker.py               — Cohere cross-encoder reranker (top 20 -> top 5)
+  src/generation/
+    generator.py              — Full pipeline: retrieve -> format -> LLM -> parse
+    llm.py                    — GPT-4o-mini call (OpenAI SDK, temperature=0)
+    prompt.py                 — System prompt: citation-only, strict grounding
+    formatter.py              — Formats chunks into numbered context blocks
+    parser.py                 — Extracts cited sources from answer text
+  src/evaluation/
+    eval_pipeline.py          — Ragas-based faithfulness + answer relevancy eval
+    scorer.py                 — Scores individual Q&A pairs
+    ci_gate.py                — Fails CI if faithfulness < threshold
+    golden_qa.jsonl           — 10 curated Q&A pairs for evaluation
+    results.json              — Latest eval run results
+  src/ingestion/
+    embedder.py               — Chunk embedder / indexer
+
+VECTOR STORE
+  ChromaDB (local, file-based at ./chroma_db)
+  Model: OpenAI text-embedding-3-small
+  3,235 chunks from LangChain documentation
+
+FRONTEND (Vanilla React — no bundler, no npm)
+  frontend/index.html         — Single HTML file, loads React + ReactDOM from CDN,
+                                 also loads marked.js for markdown rendering
+  frontend/src/
+    app.jsx                   — Top-level router (page state via localStorage)
+    landing.jsx               — Marketing page: hero, features, pricing, footer
+    auth.jsx                  — Sign in / Sign up UI (split layout with shelf art)
+    chat.jsx                  — Chat interface: sidebar + message list + composer
+    profile.jsx               — Profile page: stats, history timeline, bookmarks, settings
+    shared.jsx                — Nav, Footer, BookShelf animation, FloatingDocs
+    icons.jsx                 — SVG icon components
+
+INFRASTRUCTURE
+  docker-compose.yml          — Single container: FastAPI on port 8000
+  Dockerfile                  — Python container, uvicorn entrypoint
+  .env                        — OPENAI_API_KEY, COHERE_API_KEY (gitignored)
+
+────────────────────────────────────────────────────────────────────────────────
+3. WHAT IS REAL vs WHAT IS FAKE RIGHT NOW
+────────────────────────────────────────────────────────────────────────────────
+
+REAL (fully working):
+  OK  POST /ask -- full RAG pipeline works end-to-end
+  OK  Hybrid retrieval (BM25 + vector + Cohere reranker)
+  OK  GPT-4o-mini answer generation with citations
+  OK  Evaluation pipeline (Ragas faithfulness scoring)
+  OK  Frontend pages render and navigate
+  OK  Chat page sends questions to /ask and displays answers
+  OK  Citation popups on hover (inline [1][2] pills)
+  OK  Confidence meter (computed from citation count, not real model confidence)
+  OK  Dark/light theme toggle (persisted in localStorage)
+  OK  Markdown rendering with marked.js
+
+FAKE / HARDCODED / WIRED TO NOTHING:
+  OK  Auth -- Google + GitHub OAuth via Supabase. Session managed in app.jsx.
+  OK  Google/GitHub OAuth buttons -- wired to supabase.auth.signInWithOAuth()
+  OK  Real user name in chat sidebar -- reads from session user_metadata
+  OK  Sign-out button -- calls supabase.auth.signOut(), redirects to landing
+  OK  /ask protected -- returns 401 without valid Supabase JWT
+  NO  Profile -- "Casey Ng", "1,847 queries", "312 docs", all hardcoded constants
+  NO  Chat history sidebar -- hardcoded INITIAL_HISTORY array (3 fake entries)
+  NO  Chat history timeline in profile -- hardcoded TIMELINE array
+  NO  Saved bookmarks in profile -- hardcoded BOOKMARKS array
+  NO  Quota tracking -- "5,000 free chunks" badge exists in UI, never enforced
+  NO  Query count limiting (100 queries/month free tier) -- not tracked
+  NO  Multi-turn context -- each /ask is stateless, no history sent to LLM
+  NO  "New conversation" button -- clears UI state only, nothing persisted
+  NO  Suggested followups -- hardcoded 3 strings unrelated to conversation
+
+────────────────────────────────────────────────────────────────────────────────
+4. PROBLEMS IDENTIFIED
+────────────────────────────────────────────────────────────────────────────────
+
+PROBLEM 1: No multi-turn context
+  Every /ask call sends only the current question. Follow-up questions like
+  "How does that relate to memory?" fail because the LLM has no prior context.
+  The frontend holds messages in React state, but nothing is sent to the backend.
+  Solution: send last N turns with each /ask call (see Phase 3).
+
+PROBLEM 2: No auth, no user identity
+  Anyone can use the app without signing in. "Sign in" goes straight to chat.
+  No user_id means quota tracking, history persistence, and multi-tenancy are
+  impossible. Everything downstream depends on solving this first.
+  Solution: Supabase Auth (see Phase 1).
+
+PROBLEM 3: No persistence -- chat history dies on refresh
+  Conversations exist only in React useState. Refresh = all history gone.
+  The profile history timeline, sidebar history, and bookmarks have no data
+  source. Solution: store chats + messages in Supabase Postgres (see Phase 2).
+
+PROBLEM 4: Quota is advertised but never enforced
+  The landing page and signup form both show "5,000 free chunks" and
+  "100 queries/month". These are not tracked anywhere. Any user can send
+  unlimited queries. Solution: track queries_used per user in DB (Phase 4).
+
+PROBLEM 5: The "5,000 chunks" number is confusing and probably too low
+  LangChain docs alone = 3,235 chunks. A single moderately-sized codebase
+  or documentation set = 5,000-20,000 chunks. The free tier limit of 5,000
+  would block the core "bring-your-own-docs" value prop almost immediately.
+  Decision: keep 5,000 for now (it's in the UI everywhere), but the real
+  monetization lever is queries/month, not chunk count. Raise chunk limit
+  to 25,000 when you launch bring-your-own-docs.
+
+PROBLEM 6: Shared single-tenant index
+  Everyone queries the same ChromaDB collection. When bring-your-own-docs
+  launches, each user's uploaded chunks must be isolated per user/workspace.
+  ChromaDB supports named collections -- one collection per workspace.
+  Solution: tag chunks with workspace_id, or use separate collections (Phase 5).
+
+PROBLEM 7: No real confidence score
+  ConfidenceMeter in chat.jsx is computed as:
+    >= 4 sources -> 0.88, >= 2 sources -> 0.78, else -> 0.62
+  This is a rough proxy. Real confidence should come from the reranker's
+  top score or from Ragas answer relevancy. Not critical to fix now, but
+  document it as a known approximation.
+
+────────────────────────────────────────────────────────────────────────────────
+5. WHY SUPABASE -- NOT SQLAlchemy
+────────────────────────────────────────────────────────────────────────────────
+
+SQLAlchemy is a Python ORM -- it is NOT a backend solution. It only gives you
+a Python layer to talk to a database. You still have to:
+  - Choose and run a Postgres/SQLite server yourself
+  - Write password hashing (bcrypt)
+  - Write JWT generation + validation (python-jose or PyJWT)
+  - Implement token refresh logic
+  - Build the OAuth flow for Google + GitHub (auth.jsx already has those buttons)
+  - Handle session expiry, logout, password reset
+
+Supabase gives you all of the above in one service:
+  - Managed Postgres (you define tables, it hosts them)
+  - Auth: email/password, Google OAuth, GitHub OAuth -- all built-in
+  - JWT issuance and refresh -- automatic
+  - Row Level Security (RLS) -- per-user data isolation enforced at DB level
+  - Python client: supabase-py (wraps PostgREST + Auth)
+  - Free tier: 500MB DB, 50,000 auth users, sufficient for MVP
+
+For this project specifically, Supabase wins because:
+  1. Google + GitHub buttons exist in auth.jsx -- Supabase makes these work
+     with 3 lines of code, not a full OAuth implementation.
+  2. The FastAPI backend does not need auth logic -- it just verifies the JWT
+     Supabase issued using their public key (one middleware function).
+  3. Chat history tables, user tables, quota tracking -- all go in the same
+     Supabase Postgres, queried with supabase-py or raw SQL via psycopg2.
+  4. No self-managed database server. Local dev uses the same Supabase
+     project as prod. No SQLite -> Postgres migration risk.
+
+When to use SQLAlchemy: if you already have a self-hosted Postgres, need
+advanced ORM features (complex joins, migrations with Alembic), or want
+zero external dependencies. For an early-stage SaaS app, Supabase is faster.
+
+The backend still uses FastAPI. Supabase is just the auth + database layer.
+
+────────────────────────────────────────────────────────────────────────────────
+6. THE COMPLETE PHASED ROADMAP
+────────────────────────────────────────────────────────────────────────────────
+
+PHASE 1: Supabase Auth + Database Foundation
+=============================================
+Goal: real users with identity. Nothing else works without this.
+
+Step 1.1 -- Create Supabase project
+  - Sign up at supabase.com, create project "wizardocs"
+  - Get: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+  - Add to .env (already gitignored)
+
+Step 1.2 -- Define database schema in Supabase SQL editor
+  Tables:
+    users_profile   (id uuid PK refs auth.users, name, plan, created_at)
+    workspaces      (id uuid PK, owner_id uuid, name, slug, created_at)
+    chats           (id uuid PK, workspace_id uuid, title, created_at)
+    messages        (id uuid PK, chat_id uuid, role, content, sources_json,
+                     created_at)
+    query_usage     (user_id uuid PK, count int, period_start date)
+    chunk_usage     (workspace_id uuid PK, chunks_indexed int)
+
+  Notes:
+    - auth.users is Supabase's built-in users table (email, password, OAuth)
+    - users_profile extends it with app-specific fields
+    - RLS policies: users can only read/write their own rows
+    - sources_json stores [{"number":1,"title":"...","url":"..."}] as JSON
+
+Step 1.3 -- Enable Supabase Auth providers
+  - Email/password: on by default
+  - Google OAuth: enable in Supabase dashboard, add client_id + secret
+  - GitHub OAuth: same
+  - Set redirect URL to your domain (localhost:8000 for dev)
+
+Step 1.4 -- Wire the FastAPI backend for JWT verification
+  New file: api/auth.py
+    - Dependency: verify_jwt(token: str) -> user_id
+    - Uses Supabase JWT secret to verify the token signature
+    - Injects user_id into protected endpoints
+  Change: /ask now requires Authorization: Bearer <token>
+    - If no token -> 401
+    - If token valid -> proceed with user_id in context
+
+Step 1.5 -- Wire the frontend auth forms
+  In auth.jsx, SignIn and SignUp currently call go("chat") directly.
+  Changes:
+    SignUp form  -> supabase.auth.signUp({ email, password })
+    SignIn form  -> supabase.auth.signInWithPassword({ email, password })
+    Google btn   -> supabase.auth.signInWithOAuth({ provider: "google" })
+    GitHub btn   -> supabase.auth.signInWithOAuth({ provider: "github" })
+    On success: store session in localStorage, call go("chat")
+    On failure: show error message under the form field
+  Add supabase-js CDN script to index.html (same pattern as React -- no bundler)
+
+Step 1.6 -- Replace hardcoded "Wizardocs User" with real name
+  In chat.jsx sidebar, the user button shows "Wizardocs User".
+  Read display_name from the Supabase session user metadata.
+  Replace avatar letter "W" with first letter of real name.
+
+Verify: user can sign up, sign in, be redirected to chat, see their name.
 
 
-CURRENT PHASE: Phase 3 Complete → Entering Phase 4
----------------------------------------------------
-You have a fully working retrieval pipeline. The system can find the most relevant chunks
-for any query. What's missing is the "answer" part — generating a response from those chunks.
+PHASE 2: Chat Persistence + Real History
+=========================================
+Goal: conversations survive refresh, sidebar shows real history.
+
+Step 2.1 -- New backend endpoints
+  POST /chats
+    Creates a new row in chats table (user's workspace_id, title = "New chat")
+    Returns { chat_id }
+  GET /chats
+    Returns last 20 chats for the authenticated user
+    Used to populate the sidebar history list
+  GET /chats/{chat_id}/messages
+    Returns all messages for a chat (for loading old conversations)
+  PATCH /chats/{chat_id}
+    Updates chat title (set to first user message, truncated to 60 chars)
+
+Step 2.2 -- /ask now saves to DB
+  Change AskRequest schema:
+    class AskRequest(BaseModel):
+        question: str
+        chat_id:  str    # UUID of the current chat
+
+  After generating the answer:
+    INSERT INTO messages (chat_id, role="user", content=question)
+    INSERT INTO messages (chat_id, role="assistant", content=answer,
+                          sources_json=json.dumps(sources))
+    If first message: PATCH /chats/{chat_id} to set title = question[:60]
+
+Step 2.3 -- Frontend: chat_id lifecycle
+  "New conversation" button:
+    POST /chats -> get chat_id
+    Store chat_id in component state
+    Clear messages, set active chat
+  On page load (returning user):
+    GET /chats -> populate sidebar history (replaces hardcoded INITIAL_HISTORY)
+  Clicking a history item:
+    GET /chats/{id}/messages -> load old conversation into messages state
+  Send button:
+    Include chat_id in the /ask request body
+
+Step 2.4 -- Profile history timeline becomes real
+  Profile HistoryTimeline:
+    GET /chats -> real data (day grouping computed from created_at)
+    Replace hardcoded TIMELINE constant
+  Stats on profile hero:
+    Total queries:  SELECT COUNT(*) FROM messages WHERE role="user"
+    Indexed docs:   from chunk_usage table (Phase 5)
+    Saved answers:  SELECT COUNT(*) FROM messages WHERE bookmarked=true
+
+Verify: ask a question, refresh, open chat again -> history is there.
 
 
-WHAT'S BEEN BUILT (Phases 1–3)
--------------------------------
+PHASE 3: Multi-Turn Context (The Memory Problem)
+=================================================
+Goal: follow-up questions ("what about memory?") work correctly.
 
-Phase 1 — Ingestion (Done)
-- Scraped 671 LangChain doc pages via sitemap
-- Split into 3,422 chunks (1200 chars, 200-char overlap)
-- Embedded with OpenAI text-embedding-3-small, stored in ChromaDB (57 MB)
+The Problem in Detail:
+  Currently llm.py sends:
+    [system_prompt, {"role":"user", "content": "Context:\n...\nQuestion: Q"}]
+  The LLM has no idea what Q refers to when Q is a follow-up.
 
-Phase 2 — Hybrid Retrieval (Done)
-- BM25 sparse index (keyword search) via rank-bm25
-- Vector search via ChromaDB
-- RRF (Reciprocal Rank Fusion, k=60) merges both ranked lists → top-20
+The Solution -- stateless history injection:
+  The frontend sends the last N message pairs along with the new question.
+  The backend includes them in the LLM call as conversation history.
+  No server-side session storage needed -- messages are already in the DB.
 
-Phase 3 — Reranking (Done)
-- Cohere rerank-english-v3.0 cross-encoder rescores the top-20 → top-5
-- Full pipeline callable: search_with_rerank(query) → top-5 chunks with scores
+Step 3.1 -- Extend AskRequest schema
+  class Turn(BaseModel):
+      role:    str    # "user" | "assistant"
+      content: str
 
+  class AskRequest(BaseModel):
+      question: str
+      chat_id:  str
+      history:  list[Turn] = []    # last 3 turns = 6 messages max
 
-WHAT'S NOT BUILT YET (Phases 4–6)
------------------------------------
+Step 3.2 -- Update llm.py to accept history
+  def generate(query: str, context: str, history: list[dict] = []) -> str:
+      messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+      for turn in history:
+          messages.append({"role": turn["role"], "content": turn["content"]})
+      messages.append({
+          "role": "user",
+          "content": f"Context:\n{context}\n\nQuestion: {query}"
+      })
+      ...
 
-Phase 4 — Generation + Citations (Next)
-- Anthropic Claude integration in src/generation/ (currently empty)
-- Format top-5 chunks as [1]...[2]... context
-- Enforce citation-only answers via prompt
-- Parse [N] citations from response, validate no hallucinations
-- Requires: ANTHROPIC_API_KEY
+  IMPORTANT: history goes BEFORE the current question+context.
+  The retrieval query remains just `question` -- not the full history.
+  This keeps retrieval sharp. Only the LLM call gets history.
 
-Phase 5 — Evaluation + CI Gate
-- 50-question golden dataset (data/golden_qa.jsonl)
-- Ragas evaluation with faithfulness >= 0.85 threshold
-- GitHub Actions CI gate: fails if faithfulness drops
+Step 3.3 -- Frontend: build history slice before sending
+  In chat.jsx send():
+      const history = messages.slice(-6).map(m => ({
+          role:    m.role === "user" ? "user" : "assistant",
+          content: m.text,
+      }));
+      body: JSON.stringify({ question: q, chat_id, history })
 
-Phase 6 — API / UI / Docker
-- FastAPI /ask and /ingest endpoints
-- Streamlit UI for Q&A and document upload
-- Docker Compose: docker compose up → full working app
+  Why 6 messages (3 turns)?
+  - Cost: each turn adds ~300-500 tokens to every API call
+  - 3 turns covers 99% of follow-up scenarios
+  - Beyond 3 turns, context is usually unnecessary for RAG
 
+  "New conversation" clears messages -> history is empty -> no prior context.
+  This is correct. No use_history flag needed -- empty array is the flag.
 
-ARCHITECTURE / DATA FLOW
--------------------------
+Step 3.4 -- Update generator.py to pass history through
+  def ask(query: str, history: list[dict] = []) -> dict:
+      chunks = search_with_rerank(query)   # retrieval: query only, no history
+      return generate(query, chunks, history)
 
-Sitemap → URLs → HTML → Docs → Chunks → Embed → ChromaDB
-                                              └─ BM25 Index
-
-Query → [Vector + BM25] → RRF Fusion (top-20) → Cohere Rerank (top-5) → [Phase 4: Claude LLM] → Cited Answer
-
-
-TECH STACK
-----------
-
-Layer               Tool
----------           ----
-Scraping            Requests, Trafilatura, BeautifulSoup
-Embeddings          OpenAI text-embedding-3-small
-Vector Store        ChromaDB
-Sparse Search       rank-bm25
-Reranking           Cohere rerank-english-v3.0
-Generation (plan)   Anthropic Claude
-API (planned)       FastAPI
-UI (planned)        Streamlit
-Deploy (planned)    Docker Compose
-
-
-GIT TIMELINE
-------------
-
-Feb 11  → initial LangChain scrape
-Feb 24  → ChromaDB + chunk embeddings (Phase 1 done)
-Mar  5  → BM25 + vector + RRF retrieval (Phase 2 done)
-Mar 10  → Cohere reranking (Phase 3 done)
-Mar 10  → code comment polish (stable, ready for Phase 4)
+Verify: ask "How do agents work?", then ask "How does memory relate to that?"
+-> second answer should reference the agents context from the first turn.
 
 
-WHAT TO DO NEXT
----------------
-Phase 4 is the critical blocker — everything else (eval, UI, API) depends on generation
-working first. The src/generation/ directory exists but is empty. Wire in Anthropic Claude,
-format the retrieved chunks as numbered context, and parse citations from the response.
+PHASE 4: Quota Tracking (Make the Free Tier Real)
+==================================================
+Goal: enforce "100 queries/month" free tier limit.
+
+Two limits exist in the pricing page:
+  1. 100 queries/month     -- enforced in Phase 4 (applies now)
+  2. 5,000 indexed chunks  -- enforced in Phase 5 (only when BYOD launches)
+
+Step 4.1 -- Track queries in /ask endpoint
+  Before processing:
+    SELECT count FROM query_usage
+    WHERE user_id = X AND period_start = THIS_MONTH
+    If count >= 100 AND user.plan = "free":
+        raise HTTPException(402, "Monthly query limit reached. Upgrade to Pro.")
+  After processing:
+    INSERT INTO query_usage ... ON CONFLICT ... DO UPDATE SET count = count + 1
+
+Step 4.2 -- Return quota info in API response
+  Extend AskResponse:
+    class AskResponse(BaseModel):
+        answer:         str
+        sources:        list[Source]
+        queries_used:   int    # e.g. 47
+        queries_limit:  int    # e.g. 100 (or null for Pro)
+
+Step 4.3 -- Show quota in the frontend
+  In chat compose footer (currently shows "Grounded in 3,235 chunks"):
+    Add: "47 / 100 queries this month"
+  When limit hit: show upgrade banner instead of composer
+
+Step 4.4 -- Profile settings shows real quota
+  Replace hardcoded stat "1,847 queries" with real count from query_usage.
+  Add usage bar: "47 of 100 queries used this month"
+
+
+PHASE 5: Bring-Your-Own-Docs (BYOD) + Chunk Quota
+===================================================
+Goal: users upload their own documents and query them.
+This unlocks the Pro tier value and the "5,000 chunk" limit becomes real.
+
+Step 5.1 -- Document upload endpoint
+  POST /documents (multipart/form-data, requires Pro plan OR within free limit)
+    Accept: .pdf, .md, .txt, .docx
+    Chunk the document (semantic chunker, ~512 tokens, 64 overlap)
+    Embed chunks (text-embedding-3-small)
+    Store in ChromaDB collection: workspace_{workspace_id}
+    Track chunk count in chunk_usage table
+    If chunks_indexed + new_chunks > limit -> reject with 402
+
+Step 5.2 -- Multi-tenant retrieval
+  Currently search_with_rerank(query) searches the global collection.
+  Change to search_with_rerank(query, workspace_id):
+    Search workspace_{workspace_id} collection (user's private docs)
+    Optionally also search the shared "wizardocs" collection (LangChain etc)
+    Merge and rerank results from both
+
+Step 5.3 -- Enforce chunk quota
+  Free tier: 5,000 indexed chunks (reconsider to 25,000 before launch)
+  On upload:
+    SELECT chunks_indexed FROM chunk_usage WHERE workspace_id = X
+    If chunks_indexed + new_count > limit -> reject, suggest upgrade
+  Track: UPDATE chunk_usage SET chunks_indexed = chunks_indexed + new_count
+
+Step 5.4 -- Library management UI
+  Profile page currently has hardcoded "312 indexed docs" and "3,235 chunks".
+  Add a real "Library" tab:
+    List uploaded documents (name, chunk count, upload date, delete button)
+    Usage bar: "2,400 / 5,000 chunks used"
+    Upload button (drag-and-drop)
+
+Step 5.5 -- On the "5,000 chunks" number
+  Current state: users cannot upload docs, chunk quota does not apply yet.
+  The number 5,000 appears in the landing pricing section and signup chip.
+  Recommendation: keep 5,000 in the UI until BYOD launches, then raise to
+  25,000 when you discover it is too restrictive in practice. LangChain alone
+  is 3,235 chunks, so 5,000 lets users add roughly 1 medium-sized doc set.
+  The real monetization lever is queries/month (100 free vs unlimited Pro).
+
+────────────────────────────────────────────────────────────────────────────────
+7. KEY ARCHITECTURAL DECISIONS (with rationale)
+────────────────────────────────────────────────────────────────────────────────
+
+DECISION: No bundler (Vite, webpack) for the frontend
+  The entire frontend is served from a single index.html with React loaded
+  from the jsDelivr CDN. No npm, no build step.
+  Why: this project prioritizes speed of iteration. A bundler would require
+  setting up hot reload, build scripts, and import resolution. For vanilla
+  JSX served by FastAPI, the CDN approach works and can always be migrated
+  to Vite later if the codebase grows.
+  Tradeoff: no TypeScript, no tree-shaking, slower initial load on cold cache.
+
+DECISION: ChromaDB (local) over Pinecone/Weaviate
+  ChromaDB is file-based and runs locally with no infra. For a single-tenant
+  or small multi-tenant workload it is fine. The chroma_db/ directory is
+  mounted as a Docker volume.
+  When to migrate: if the corpus exceeds ~1M chunks or you need horizontal
+  scaling, migrate to Weaviate (self-hosted) or Qdrant. Not Pinecone -- it
+  does not support the multi-tenant named-collection pattern needed for BYOD.
+
+DECISION: GPT-4o-mini over Claude or Llama
+  Low cost, fast, good instruction following for citation-only prompts.
+  The system prompt is strict enough that model choice matters less than
+  retrieval quality for grounded RAG.
+  Profile settings already has a model selector dropdown (not yet functional).
+
+DECISION: Cohere reranker
+  Cohere's cross-encoder significantly improves precision over pure BM25+vector.
+  The eval pipeline (Ragas) measures this. Faithfulness improved after adding
+  the reranker (documented in commit b16166b).
+  Alternative: use a local cross-encoder (bge-reranker-base via sentence-
+  transformers). Slower but free. Use if Cohere costs become an issue.
+
+DECISION: RRF fusion (not score normalization)
+  BM25 scores (0-15) and vector scores (cosine, 0-1) are on different scales.
+  Score normalization introduces a hyperparameter (normalization method) and
+  can be gamed by outliers. RRF uses only rank position -- scale-independent,
+  robust, no tuning needed. Standard constant k=60 used.
+
+DECISION: Supabase over self-managed Postgres + SQLAlchemy
+  See Section 5 above. Summary: Supabase provides auth (email + Google +
+  GitHub OAuth), managed Postgres, JWT handling, and RLS in one service.
+  Self-managing auth with SQLAlchemy would require bcrypt, python-jose,
+  OAuth2 flows, and token refresh logic -- weeks of work Supabase does for free.
+  The Google + GitHub buttons already exist in auth.jsx.
+
+DECISION: Stateless history injection (not server-side sessions)
+  Each /ask request includes the last N message turns from the frontend.
+  The backend is still stateless -- it does not need to look up a session.
+  Why not server-side sessions: Redis adds infrastructure, session lookup
+  adds latency, and the messages are already in the DB (Phase 2) -- the
+  frontend just reads them from its own state.
+
+DECISION: Retrieval query = current question only (not full history)
+  Even when history is sent to the LLM, the retrieval step uses only the
+  current question as the search query. This keeps retrieval sharp -- embedding
+  a paragraph of conversation history produces noisier results than embedding
+  a clean question.
+  Exception: if the current question is a pure pronoun reference ("that",
+  "it", "this"), a query rewrite step would help. Implement if needed.
+
+────────────────────────────────────────────────────────────────────────────────
+8. EVALUATION PIPELINE
+────────────────────────────────────────────────────────────────────────────────
+
+The project has a Ragas-based evaluation pipeline built in Phase 3 of
+development (commit 8324580, tightened in b16166b).
+
+Files:
+  src/evaluation/golden_qa.jsonl    -- 10 hand-labeled Q&A pairs with ground truth
+  src/evaluation/eval_pipeline.py   -- runs all 10 through the RAG pipeline
+  src/evaluation/scorer.py          -- computes faithfulness + answer_relevancy
+  src/evaluation/ci_gate.py         -- fails if faithfulness < 0.7
+  src/evaluation/results.json       -- latest scores
+
+Metrics tracked:
+  faithfulness     -- does the answer only use information from retrieved chunks?
+  answer_relevancy -- does the answer actually answer the question?
+
+Current scores: see results.json (last run from commit b416ac3).
+
+CI behavior: the gate runs on each eval, not on every PR automatically.
+To integrate with CI: add a GitHub Actions step that runs ci_gate.py and
+blocks merge if faithfulness drops below threshold.
+
+────────────────────────────────────────────────────────────────────────────────
+9. PROBLEMS SOLVED IN EARLIER PHASES (history)
+────────────────────────────────────────────────────────────────────────────────
+
+PHASE 1 (commit 8324580): Evaluation pipeline with Ragas + CI faithfulness gate
+  Problem: no way to measure answer quality.
+  Solution: 10 golden Q&A pairs, Ragas faithfulness + answer_relevancy scoring,
+  CI gate at faithfulness 0.7.
+
+PHASE 2 (commit b16166b): Tightened citation rules
+  Problem: the LLM was citing at the paragraph level, not the sentence level.
+  Solution: updated SYSTEM_PROMPT to require [N] after EVERY sentence that
+  makes a factual claim, not just at the end of a paragraph.
+
+PHASE 3 (commit f4c9156): Dedup chunks + FastAPI /ask + CORS + Docker
+  Problem: duplicate chunks in ChromaDB were inflating retrieval results.
+  Solution: content-hash dedup during ingestion. Also wired up the full
+  FastAPI app, added CORS middleware, and containerized with Docker.
+
+PHASE 4 (commit bd7b3da): Wizardocs frontend -- SPA wired to /ask backend
+  Problem: no frontend.
+  Solution: full SPA with landing, auth, chat, profile pages. Vanilla React
+  via CDN. Chat page wired to POST /ask. All navigation working.
+
+PHASE 6 (2026-05-03): Phase 1 auth implementation complete
+  Decision: Google + GitHub OAuth only — dropped email/password entirely.
+  Why: target audience (ML practitioners) all have Google/GitHub. Eliminates
+  bcrypt, JWT generation, forgot-password flow, email verification — all
+  replaced by Supabase Auth in 3 lines per provider.
+  Files changed:
+    requirements.txt       — added PyJWT
+    api/auth.py            — new: verify_jwt dependency (HS256, audience="authenticated")
+    api/main.py            — /ask now requires Authorization: Bearer <token>
+    supabase_schema.sql    — new: all 6 tables + RLS policies + auto-create trigger
+    frontend/index.html    — added supabase-js CDN, SUPABASE_URL/ANON_KEY config,
+                             initialized window._supabase client
+    frontend/src/auth.jsx  — replaced complex email/password forms with 2 OAuth buttons
+    frontend/src/app.jsx   — added user state, getSession() on mount,
+                             onAuthStateChange listener, route protection
+    frontend/src/chat.jsx  — /ask now sends Authorization header with session token,
+                             SidebarUser shows real name + sign-out button
+    .env.example           — documented all 5 required env vars
+
+PHASE 5 (commit b416ac3): Fixed all navigation and dead links in frontend
+  Problem: several navigation links (footer, profile nav, history items) were
+  broken or pointed to wrong pages.
+  Solution: audited all go() calls, href="#" anchors, and section scroll
+  targets. All routes now resolve correctly.
+
+────────────────────────────────────────────────────────────────────────────────
+10. WHAT TO BUILD NEXT -- ORDERED BY DEPENDENCY
+────────────────────────────────────────────────────────────────────────────────
+
+You cannot skip phases. Each depends on the previous:
+
+  Phase 1 (Auth)     -> gives you user_id
+  Phase 2 (Chat DB)  -> needs user_id to own chats
+  Phase 3 (Context)  -> needs chat messages in DB to build history
+  Phase 4 (Quota)    -> needs user_id to track per-user usage
+  Phase 5 (BYOD)     -> needs workspace, chunk quota, multi-tenant retrieval
+
+Start here: create the Supabase project, define the tables, enable Google
+OAuth. Then wire the SignIn/SignUp forms. One working vertical slice:
+  sign up -> create account -> land in chat -> see your name in the sidebar
+That is the first real milestone. Everything after that builds on it.
+
+────────────────────────────────────────────────────────────────────────────────
+11. OPEN QUESTIONS / THINGS NOT YET DECIDED
+────────────────────────────────────────────────────────────────────────────────
+
+Q: What happens to the shared LangChain index when BYOD launches?
+   Option A: shared index always included in every search (augments private docs)
+   Option B: users opt in to include it
+   Option C: shared index removed, all content must be user-uploaded
+   Recommendation: Option A for now. Users get value immediately.
+
+Q: When a user's chat history is loaded from the DB, do we re-render citations?
+   The sources_json column stores the source objects. The frontend needs to
+   re-hydrate allSources state from this data. Not complex but needs handling.
+
+Q: What is the workspace model? One workspace per user, or team workspaces?
+   Current plan: one workspace per user (auto-created on signup).
+   Team workspaces come in the Team plan. Implement user = workspace for now.
+
+Q: Should the eval pipeline run against the real /ask API or directly against
+   the generator? Currently runs against generator.py directly (faster).
+   When auth is added, the eval pipeline will need a service-role JWT bypass
+   or a dedicated eval endpoint that skips auth.
+
+Q: Confidence meter -- should it use real reranker scores?
+   The top reranker score from Cohere is a real relevance signal (0-1 range).
+   Replacing the current proxy (count-based) with reranker top score would
+   be more accurate. Low effort, good improvement.
+
+================================================================================
+END OF SUMMARY
+================================================================================

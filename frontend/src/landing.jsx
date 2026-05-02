@@ -1,9 +1,9 @@
 // Landing page — hero with shelf, how it works, features, footer
 
-function Landing({ go, tweaks }) {
+function Landing({ go, theme, toggleTheme }) {
   return (
     <div className="landing page-enter">
-      <Nav go={go} />
+      <Nav go={go} theme={theme} toggleTheme={toggleTheme}/>
 
       {/* Hero */}
       <section className="hero">
@@ -54,7 +54,7 @@ function Landing({ go, tweaks }) {
           </div>
 
           <div className="hero-right">
-            <BookShelf intensity={tweaks.motion}/>
+            <BookShelf intensity="low"/>
             <div className="hero-caption mono">
               <span className="hero-caption-line"/>
               retrieval layer → your library
@@ -122,7 +122,7 @@ function Landing({ go, tweaks }) {
       <section id="features" className="section features">
         <div className="feat-grid">
           <div className="feat big">
-            <FloatingDocs intensity={tweaks.motion}/>
+            <FloatingDocs intensity="low"/>
             <div className="feat-copy">
               <div className="chip">THE STACK</div>
               <h3 className="h3">The ML/LLM docs, finally answerable.</h3>

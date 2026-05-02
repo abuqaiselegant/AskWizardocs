@@ -40,7 +40,7 @@ const DEMO_SOURCES = [
 
 const DEMO_ANSWER = "LangChain agents use an LLM as a reasoning engine to decide which **actions** to take and in what order[1]. The core loop is: (1) the LLM receives the current state (prompt + past observations) and outputs an action, (2) the action calls a **tool**, (3) the tool's output is fed back as an observation, and the loop repeats until a final answer is produced[1].\n\nTools are the interfaces agents use to interact with the world — each tool has a name, description, and callable function[2]. The LLM picks which tool to call based on the description.\n\n**AgentExecutor** is the runtime that drives the loop: it calls the agent, executes tool actions, and passes results back until the agent signals it's done[3].";
 
-function Chat({ go, tweaks }) {
+function Chat({ go, theme, toggleTheme, user }) {
   const [history, setHistory] = React.useState(INITIAL_HISTORY);
   const [activeId, setActiveId] = React.useState("c1");
   const [input, setInput] = React.useState("");
@@ -108,9 +108,13 @@ function Chat({ go, tweaks }) {
     setActiveId(newEntry.id);
 
     try {
+      const { data: { session } } = await window._supabase.auth.getSession();
       const res = await fetch(`${window.API_BASE}/ask`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session?.access_token ?? ""}`,
+        },
         body: JSON.stringify({ question: q }),
       });
 
@@ -229,14 +233,7 @@ function Chat({ go, tweaks }) {
           </div>
         </div>
 
-        <button className="side-user" onClick={() => go("profile")}>
-          <div className="avatar">W</div>
-          <div style={{ flex: 1, textAlign: "left", overflow: "hidden" }}>
-            <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Wizardocs User</div>
-            <div className="mono" style={{ fontSize: 11, color: "var(--ink-3)" }}>LangChain · local</div>
-          </div>
-          <I.Chevron size={14} style={{ color: "var(--ink-3)" }} />
-        </button>
+        <SidebarUser user={user} go={go}/>
       </aside>
 
       {/* MAIN */}
@@ -259,6 +256,11 @@ function Chat({ go, tweaks }) {
               }}>
               <I.Copy size={15} />
             </button>
+            {toggleTheme && (
+              <button className="btn ghost" title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"} onClick={toggleTheme}>
+                {theme === "dark" ? <I.Sun size={15}/> : <I.Moon size={15}/>}
+              </button>
+            )}
             <button className="btn ghost" title="Back to home" onClick={() => go("landing")}>
               <I.Arrow size={15} style={{transform:"rotate(180deg)"}}/>
             </button>
@@ -345,8 +347,10 @@ function Chat({ go, tweaks }) {
       <style>{`
         .chat {
           height: 100vh;
+          max-height: 100vh;
           display: grid;
           grid-template-columns: 280px 1fr;
+          grid-template-rows: 100vh;
           background: var(--bg);
           overflow: hidden;
         }
@@ -390,6 +394,8 @@ function Chat({ go, tweaks }) {
           padding: 18px 14px;
           gap: 14px;
           overflow-y: auto;
+          height: 100vh;
+          min-height: 0;
         }
         .side-logo {
           display:flex; align-items:center; gap: 10px;
@@ -435,8 +441,9 @@ function Chat({ go, tweaks }) {
           color: #0a0a0f; font-weight: 600; font-size: 13px;
           display:grid; place-items: center;
         }
-        .chat-main { display:flex; flex-direction: column; min-width: 0; position: relative; }
+        .chat-main { display:flex; flex-direction: column; min-width: 0; overflow: hidden; }
         .chat-head {
+          flex-shrink: 0;
           padding: 18px 32px;
           display:flex; justify-content: space-between; align-items: flex-end;
           border-bottom: 1px solid var(--line);
@@ -445,7 +452,7 @@ function Chat({ go, tweaks }) {
         }
         .chat-title { font-family: var(--font-display); font-weight: 500; font-size: 22px; margin: 4px 0 0; letter-spacing: -0.01em; }
         .chat-head-actions { display:flex; gap:6px; }
-        .chat-body { flex:1; overflow-y: auto; padding: 32px; scroll-behavior: smooth; }
+        .chat-body { flex:1; min-height: 0; overflow-y: auto; padding: 32px; scroll-behavior: smooth; }
         .chat-scroll { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 32px; }
         .empty-state {
           display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -454,10 +461,10 @@ function Chat({ go, tweaks }) {
           opacity: 0.6;
         }
         .chat-compose {
+          flex-shrink: 0;
           padding: 14px 32px 24px;
           border-top: 1px solid var(--line);
           background: var(--bg);
-          position: relative;
         }
         .composer {
           max-width: 760px; margin: 0 auto;
@@ -570,7 +577,6 @@ function UserBubble({ m }) {
 
 function AssistantMessage({ m, sources, onHoverCite }) {
   const body = m.text;
-  const paragraphs = body.split("\n\n");
   return (
     <div className="asst">
       <div className="asst-head">
@@ -588,12 +594,7 @@ function AssistantMessage({ m, sources, onHoverCite }) {
       </div>
 
       <div className="asst-body">
-        {paragraphs.map((p, i) => (
-          <p key={i}>
-            {renderWithCitations(p, sources, onHoverCite)}
-            {m.streamed && i === paragraphs.length - 1 && <span className="caret" />}
-          </p>
-        ))}
+        <ReactMarkdown text={body} sources={sources} onHoverCite={onHoverCite} streamed={m.streamed}/>
       </div>
 
       {!m.streamed && m.sources && m.sources.length > 0 && (
@@ -634,6 +635,17 @@ function AssistantMessage({ m, sources, onHoverCite }) {
         .asst-body { font-size: 15.5px; line-height: 1.65; color: var(--ink); text-wrap: pretty; }
         .asst-body p { margin: 0 0 14px; }
         .asst-body p:last-child { margin-bottom: 0; }
+        .asst-body pre { margin: 10px 0 14px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; }
+        .asst-body pre code { display:block; padding: 14px 16px; font-family: var(--font-mono); font-size: 13px; color: var(--ink-2); white-space: pre; }
+        .asst-body code { font-family: var(--font-mono); font-size: 13px; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; color: var(--accent); }
+        .asst-body pre code { background: none; padding: 0; color: var(--ink-2); }
+        .asst-body ul, .asst-body ol { margin: 0 0 14px; padding-left: 22px; }
+        .asst-body li { margin-bottom: 4px; }
+        .asst-body h3, .asst-body h4, .asst-body h5 { font-family: var(--font-display); font-weight: 500; margin: 18px 0 8px; letter-spacing: -0.01em; }
+        .asst-body h3 { font-size: 17px; }
+        .asst-body h4 { font-size: 15px; }
+        .asst-body blockquote { margin: 0 0 14px; padding: 8px 14px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 6px 6px 0; color: var(--ink-2); }
+        .asst-body hr { border: none; border-top: 1px solid var(--line); margin: 16px 0; }
         .caret {
           display:inline-block; width: 2px; height: 18px;
           background: var(--accent); margin-left: 2px;
@@ -664,6 +676,69 @@ function AssistantMessage({ m, sources, onHoverCite }) {
   );
 }
 
+// ReactMarkdown — uses marked.lexer for block structure, keeps interactive citation pills inline
+function ReactMarkdown({ text, sources, onHoverCite, streamed }) {
+  if (!text) return null;
+
+  let tokens;
+  try {
+    tokens = window.marked ? window.marked.lexer(text) : null;
+  } catch(e) { tokens = null; }
+
+  if (!tokens) {
+    // fallback if marked not loaded yet
+    const paras = text.split("\n\n");
+    return paras.map((p, i) => (
+      <p key={i}>
+        {renderWithCitations(p, sources, onHoverCite)}
+        {streamed && i === paras.length - 1 && <span className="caret"/>}
+      </p>
+    ));
+  }
+
+  const visible = tokens.filter(t => t.type !== 'space');
+  return tokens.map((token, i) => {
+    const isLast = token === visible[visible.length - 1];
+    switch (token.type) {
+      case 'paragraph':
+        return (
+          <p key={i}>
+            {renderWithCitations(token.text, sources, onHoverCite)}
+            {streamed && isLast && <span className="caret"/>}
+          </p>
+        );
+      case 'code':
+        return (
+          <pre key={i}><code className={token.lang ? `language-${token.lang}` : ""}>{token.text}</code></pre>
+        );
+      case 'heading': {
+        const lvl = Math.min(token.depth + 2, 5);
+        const Tag = `h${lvl}`;
+        return <Tag key={i}>{token.text}</Tag>;
+      }
+      case 'list':
+        const ListTag = token.ordered ? 'ol' : 'ul';
+        return (
+          <ListTag key={i}>
+            {token.items.map((item, j) => (
+              <li key={j}>{renderWithCitations(item.text, sources, onHoverCite)}</li>
+            ))}
+          </ListTag>
+        );
+      case 'blockquote':
+        return <blockquote key={i}>{renderWithCitations(token.text || '', sources, onHoverCite)}</blockquote>;
+      case 'hr':
+        return <hr key={i}/>;
+      case 'space':
+        return null;
+      default:
+        return token.raw
+          ? <p key={i}>{renderWithCitations(token.raw.trim(), sources, onHoverCite)}</p>
+          : null;
+    }
+  });
+}
+
 function renderWithCitations(text, sources, onHoverCite) {
   const parts = [];
   let lastIdx = 0;
@@ -680,11 +755,12 @@ function renderWithCitations(text, sources, onHoverCite) {
 }
 
 function renderBold(text, key) {
-  const chunks = text.split(/(\*\*[^*]+\*\*)/);
-  return chunks.map((c, i) => c.startsWith("**")
-    ? <strong key={`${key}-${i}`} style={{ fontWeight: 600, color: "var(--ink)" }}>{c.slice(2, -2)}</strong>
-    : <React.Fragment key={`${key}-${i}`}>{c}</React.Fragment>
-  );
+  const chunks = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/);
+  return chunks.map((c, i) => {
+    if (c.startsWith("**")) return <strong key={`${key}-${i}`} style={{fontWeight:600,color:"var(--ink)"}}>{c.slice(2,-2)}</strong>;
+    if (c.startsWith("`"))  return <code key={`${key}-${i}`}>{c.slice(1,-1)}</code>;
+    return <React.Fragment key={`${key}-${i}`}>{c}</React.Fragment>;
+  });
 }
 
 function CitationPill({ n, sources, onHoverCite }) {
@@ -848,6 +924,44 @@ function SourceCards({ ids, all, hovered, onHover }) {
           max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
         .srccard:hover .srccard-url { color: var(--accent); }
+      `}</style>
+    </div>
+  );
+}
+
+function SidebarUser({ user, go }) {
+  const name    = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || "You";
+  const initial = name.charAt(0).toUpperCase();
+
+  const signOut = async () => {
+    await window._supabase.auth.signOut();
+    // onAuthStateChange in app.jsx handles the redirect to landing
+  };
+
+  return (
+    <div className="side-user-wrap">
+      <button className="side-user" onClick={() => go("profile")}>
+        <div className="avatar">{initial}</div>
+        <div style={{ flex: 1, textAlign: "left", overflow: "hidden" }}>
+          <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</div>
+          <div className="mono" style={{ fontSize: 11, color: "var(--ink-3)" }}>LangChain · free</div>
+        </div>
+        <I.Chevron size={14} style={{ color: "var(--ink-3)" }} />
+      </button>
+      <button className="side-signout mono" onClick={signOut} title="Sign out">
+        ⎋
+      </button>
+      <style>{`
+        .side-user-wrap { display: flex; align-items: center; gap: 4px; }
+        .side-user { flex: 1; display:flex; align-items:center; gap: 10px; padding: 8px; border-radius: 10px; border: 1px solid var(--line); transition: background .15s; }
+        .side-user:hover { background: var(--surface); }
+        .side-signout {
+          flex-shrink: 0;
+          padding: 8px 10px; border-radius: 8px;
+          font-size: 16px; color: var(--ink-3);
+          transition: color .15s, background .15s;
+        }
+        .side-signout:hover { color: var(--danger); background: var(--surface); }
       `}</style>
     </div>
   );

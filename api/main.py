@@ -8,11 +8,12 @@ Endpoints:
 """
 
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from api.auth import get_current_user
 from src.generation.generator import ask
 
 app = FastAPI(title="AskMyDocs", version="1.0.0")
@@ -44,7 +45,7 @@ class AskResponse(BaseModel):
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 @app.post("/ask", response_model=AskResponse)
-def ask_endpoint(request: AskRequest):
+def ask_endpoint(request: AskRequest, user_id: str = Depends(get_current_user)):
     if not request.question.strip():
         raise HTTPException(status_code=400, detail="question must not be empty")
     result = ask(request.question)

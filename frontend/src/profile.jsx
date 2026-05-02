@@ -1,11 +1,11 @@
 // Profile page — timeline history, saved bookmarks, settings
 const ConfidenceMeter = window.ConfidenceMeter;
 
-function Profile({ go, tweaks }) {
+function Profile({ go, theme, toggleTheme }) {
   const [tab, setTab] = React.useState("history");
   return (
     <div className="profile page-enter">
-      <Nav go={go}/>
+      <Nav go={go} theme={theme} toggleTheme={toggleTheme}/>
 
       <div className="prof-hero">
         <div className="prof-bg"/>

@@ -1,0 +1,15 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+chroma_db/
+rag-dataset/
+rough.ipynb
+.git/
+.claude/
+CLAUDE.md
+PLAN.md
+tests/
+scripts/
+src/evaluation/eval_results.jsonl

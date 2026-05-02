@@ -10,3 +10,6 @@ rank-bm25
 cohere
 ragas
 langchain-openai
+fastapi
+uvicorn[standard]
+python-multipart

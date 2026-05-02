@@ -1,13 +1,15 @@
 // Shared primitives: Nav, Footer, BookShelf animation, Tweaks panel, Toast
 
-const NAV_LINKS = [
-  { id: "features", label: "Features" },
-  { id: "howitworks", label: "How it works" },
-  { id: "pricing", label: "Pricing" },
-  { id: "docs", label: "Docs" },
-];
+// Scroll to a section on the landing page; navigate there first if needed
+function goSection(sectionId, go) {
+  go("landing");
+  setTimeout(() => {
+    const el = document.getElementById(sectionId);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, 120);
+}
 
-function Nav({ page, go, user }) {
+function Nav({ go, onTweaks }) {
   return (
     <nav className="wd-nav">
       <button className="wd-logo" onClick={() => go("landing")}>
@@ -15,9 +17,17 @@ function Nav({ page, go, user }) {
         <span>Wizardocs<span style={{color:"var(--accent)"}}>.</span></span>
       </button>
       <div className="wd-nav-links">
-        {NAV_LINKS.map(l => <a key={l.id} href={`#${l.id}`}>{l.label}</a>)}
+        <a href="#features"   onClick={(e) => { e.preventDefault(); goSection("features", go); }}>Features</a>
+        <a href="#howitworks" onClick={(e) => { e.preventDefault(); goSection("howitworks", go); }}>How it works</a>
+        <a href="#pricing"    onClick={(e) => { e.preventDefault(); goSection("pricing", go); }}>Pricing</a>
+        <a href="/docs" target="_blank" rel="noreferrer">Docs ↗</a>
       </div>
       <div className="wd-nav-actions">
+        {onTweaks && (
+          <button className="btn ghost nav-tweaks" onClick={onTweaks} title="Appearance">
+            <I.Settings size={15}/>
+          </button>
+        )}
         <button className="btn ghost" onClick={() => go("signin")}>Sign in</button>
         <button className="btn primary" onClick={() => go("signup")}>Get started <I.Arrow size={14}/></button>
       </div>
@@ -42,6 +52,7 @@ function Nav({ page, go, user }) {
         }
         .wd-nav-links a:hover { color: var(--ink); }
         .wd-nav-actions { display:flex; gap: 10px; justify-self: end; align-items:center; }
+        .nav-tweaks { padding: 8px 10px; }
         @media (max-width: 880px) {
           .wd-nav { grid-template-columns: 1fr auto; padding: 14px 20px; }
           .wd-nav-links { display:none; }
@@ -532,3 +543,4 @@ window.Nav = Nav;
 window.TweaksPanel = TweaksPanel;
 window.BookShelf = BookShelf;
 window.FloatingDocs = FloatingDocs;
+window.goSection = goSection;

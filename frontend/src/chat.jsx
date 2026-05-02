@@ -246,10 +246,22 @@ function Chat({ go, tweaks }) {
             <div className="mono" style={{ fontSize: 11, color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
               AskMyDocs · hybrid BM25 + vector · cross-encoder rerank
             </div>
-            <h1 className="chat-title">LangChain Q&A</h1>
+            <h1 className="chat-title">
+              {messages.find(m => m.role === "user")?.text.slice(0, 72) || "LangChain Q&A"}
+              {(messages.find(m => m.role === "user")?.text.length || 0) > 72 ? "…" : ""}
+            </h1>
           </div>
           <div className="chat-head-actions">
-            <button className="btn ghost" title="Bookmark"><I.Bookmark size={15} /></button>
+            <button className="btn ghost" title="Copy conversation"
+              onClick={() => {
+                const txt = messages.map(m => (m.role === "user" ? "You: " : "Wizardocs: ") + m.text).join("\n\n");
+                navigator.clipboard?.writeText(txt);
+              }}>
+              <I.Copy size={15} />
+            </button>
+            <button className="btn ghost" title="Back to home" onClick={() => go("landing")}>
+              <I.Arrow size={15} style={{transform:"rotate(180deg)"}}/>
+            </button>
           </div>
         </header>
 

@@ -61,15 +61,15 @@ function App() {
       {page === "chat"    && <Chat     go={go} tweaks={tweaks}/>}
       {page === "profile" && <Profile  go={go} tweaks={tweaks}/>}
 
-      {/* Persistent route switcher — helpful for clicking through pages */}
-      <RouteChip page={page} go={go}/>
+      {/* Persistent route switcher + appearance toggle */}
+      <RouteChip page={page} go={go} onTweaks={() => setTweaksOpen(o => !o)}/>
 
       <TweaksPanel open={tweaksOpen} onClose={() => setTweaksOpen(false)} tweaks={tweaks} setTweaks={setTweaks}/>
     </div>
   );
 }
 
-function RouteChip({ page, go }) {
+function RouteChip({ page, go, onTweaks }) {
   const [open, setOpen] = React.useState(false);
   const routes = [
     { id: "landing", label: "Landing" },
@@ -80,11 +80,16 @@ function RouteChip({ page, go }) {
   ];
   return (
     <div className="routechip">
-      <button className="rc-main" onClick={() => setOpen(o => !o)}>
-        <I.Layers size={13}/>
-        <span className="mono">{routes.find(r => r.id === page)?.label || page}</span>
-        <I.Chevron size={12} style={{transform: open?"rotate(90deg)":"rotate(-90deg)", transition:"transform .2s"}}/>
-      </button>
+      <div className="rc-row">
+        <button className="rc-main" onClick={() => setOpen(o => !o)}>
+          <I.Layers size={13}/>
+          <span className="mono">{routes.find(r => r.id === page)?.label || page}</span>
+          <I.Chevron size={12} style={{transform: open?"rotate(90deg)":"rotate(-90deg)", transition:"transform .2s"}}/>
+        </button>
+        <button className="rc-tweaks" onClick={onTweaks} title="Appearance">
+          <I.Settings size={13}/>
+        </button>
+      </div>
       {open && (
         <div className="rc-menu">
           {routes.map(r => (
@@ -101,6 +106,7 @@ function RouteChip({ page, go }) {
           z-index: 150;
           font-family: var(--font-mono);
         }
+        .rc-row { display: flex; align-items: center; gap: 6px; }
         .rc-main {
           display:flex; align-items:center; gap: 8px;
           padding: 8px 12px;
@@ -114,6 +120,17 @@ function RouteChip({ page, go }) {
           transition: border-color .15s, color .15s;
         }
         .rc-main:hover { border-color: var(--accent); color: var(--ink); }
+        .rc-tweaks {
+          display: grid; place-items: center;
+          width: 34px; height: 34px;
+          background: var(--surface);
+          border: 1px solid var(--line-2);
+          border-radius: 50%;
+          color: var(--ink-3);
+          box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+          transition: border-color .15s, color .15s;
+        }
+        .rc-tweaks:hover { border-color: var(--accent); color: var(--accent); }
         .rc-menu {
           position: absolute; bottom: calc(100% + 8px); left: 0;
           background: var(--surface);

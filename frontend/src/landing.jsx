@@ -153,6 +153,103 @@ function Landing({ go, tweaks }) {
         </div>
       </section>
 
+      {/* Pricing */}
+      <section id="pricing" className="section">
+        <div className="section-head">
+          <div className="chip">04 — PRICING</div>
+          <h2 className="h2">Simple, usage-based pricing.</h2>
+          <p className="muted" style={{maxWidth:560}}>Start free. Scale when you need it. No seat fees — you pay for what you index and query.</p>
+        </div>
+        <div className="pricing-grid">
+          {[
+            {
+              name: "Free",
+              price: "$0",
+              note: "forever",
+              features: ["Up to 5,000 indexed chunks", "100 queries / month", "LangChain doc index included", "API access"],
+              cta: "Start free",
+              action: () => go("signup"),
+              primary: false,
+            },
+            {
+              name: "Pro",
+              price: "$29",
+              note: "/ month",
+              features: ["Unlimited indexed chunks", "Unlimited queries", "Bring-your-own docs", "Priority reranking queue", "Eval history & CI gate"],
+              cta: "Get started",
+              action: () => go("signup"),
+              primary: true,
+            },
+            {
+              name: "Team",
+              price: "$99",
+              note: "/ month",
+              features: ["Everything in Pro", "Up to 20 seats", "Shared workspaces", "SSO / SAML", "Dedicated support"],
+              cta: "Contact us",
+              action: null,
+              primary: false,
+            },
+          ].map(p => (
+            <div key={p.name} className={"plan " + (p.primary ? "plan-primary" : "")}>
+              {p.primary && <div className="plan-badge mono">Most popular</div>}
+              <div className="plan-name mono">{p.name}</div>
+              <div className="plan-price">{p.price}<span className="plan-note mono">{p.note}</span></div>
+              <ul className="plan-features">
+                {p.features.map(f => (
+                  <li key={f}><I.Check size={13} style={{color:"var(--accent)", flexShrink:0}}/> {f}</li>
+                ))}
+              </ul>
+              {p.action ? (
+                <button className={"btn " + (p.primary ? "primary" : "")} style={{width:"100%", justifyContent:"center"}}
+                        onClick={p.action}>
+                  {p.cta} <I.Arrow size={13}/>
+                </button>
+              ) : (
+                <button className="btn" style={{width:"100%", justifyContent:"center", color:"var(--ink-3)"}}
+                        disabled>
+                  {p.cta}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+        <style>{`
+          .pricing-grid {
+            display: grid; grid-template-columns: repeat(3,1fr); gap: 18px;
+            align-items: start;
+          }
+          .plan {
+            padding: 28px; border: 1px solid var(--line);
+            border-radius: 18px; background: var(--surface);
+            display: flex; flex-direction: column; gap: 14px;
+            position: relative;
+            transition: border-color .2s, transform .2s;
+          }
+          .plan:hover { border-color: var(--line-2); transform: translateY(-2px); }
+          .plan-primary {
+            border-color: var(--accent);
+            background: color-mix(in oklab, var(--accent-soft) 60%, var(--surface));
+            box-shadow: 0 0 60px -20px var(--accent-glow);
+          }
+          .plan-badge {
+            position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+            background: var(--accent); color: #0a0a0f;
+            font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+            padding: 3px 10px; border-radius: 999px; white-space: nowrap;
+          }
+          .plan-name { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); }
+          .plan-price {
+            font-family: var(--font-display); font-weight: 500;
+            font-size: 44px; letter-spacing: -0.03em; color: var(--ink);
+            display: flex; align-items: baseline; gap: 6px;
+          }
+          .plan-note { font-size: 14px; color: var(--ink-3); font-weight: 400; letter-spacing: 0; }
+          .plan-features { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+          .plan-features li { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; color: var(--ink-2); line-height: 1.4; }
+          @media (max-width: 820px) { .pricing-grid { grid-template-columns: 1fr; } }
+        `}</style>
+      </section>
+
       {/* Big CTA */}
       <section className="section cta">
         <div className="cta-card">
@@ -168,7 +265,7 @@ function Landing({ go, tweaks }) {
         </div>
       </section>
 
-      <Footer/>
+      <Footer go={go}/>
 
       <style>{`
         .landing { position: relative; }
@@ -428,27 +525,68 @@ function StepArtGround() {
   );
 }
 
-function Footer() {
+function Footer({ go = () => {} }) {
+  const noop = (e) => e.preventDefault();
+  const LINKS = {
+    Product: [
+      { label: "Overview",   action: () => { go("landing"); window.scrollTo({top:0, behavior:"smooth"}); } },
+      { label: "Features",   action: () => window.goSection("features", go) },
+      { label: "Pricing",    action: () => window.goSection("pricing", go) },
+      { label: "Changelog",  action: null },
+    ],
+    Developers: [
+      { label: "Docs",       href: "/docs" },
+      { label: "API",        href: "/docs" },
+      { label: "Self-host",  href: "https://github.com/abuqaiselegant/AskWizardocs", external: true },
+      { label: "Evals",      action: () => go("chat") },
+    ],
+    Company: [
+      { label: "About",      action: () => { go("landing"); window.scrollTo({top:0, behavior:"smooth"}); } },
+      { label: "Manifesto",  action: null },
+      { label: "Careers",    action: null },
+      { label: "Contact",    action: null },
+    ],
+  };
+
   return (
     <footer className="wd-footer">
       <div className="wd-foot-inner">
         <div className="wd-foot-brand">
-          <div style={{display:"flex", alignItems:"center", gap:10, fontFamily:"var(--font-display)", fontWeight:600}}>
+          <button onClick={() => { go("landing"); window.scrollTo({top:0,behavior:"smooth"}); }}
+            style={{display:"flex", alignItems:"center", gap:10, fontFamily:"var(--font-display)", fontWeight:600, background:"none", border:"none", cursor:"pointer", color:"inherit"}}>
             <I.Logo size={22} style={{color:"var(--accent)"}}/> Wizardocs<span style={{color:"var(--accent)"}}>.</span>
-          </div>
+          </button>
           <p style={{color:"var(--ink-3)", fontSize:13, maxWidth:280, marginTop:12}}>
             The retrieval layer for teams that treat their docs as infrastructure.
           </p>
         </div>
         <div className="wd-foot-cols">
-          {[
-            {h:"Product", items:["Overview","Features","Pricing","Changelog"]},
-            {h:"Developers", items:["Docs","API","Self-host","Evals"]},
-            {h:"Company", items:["About","Manifesto","Careers","Contact"]},
-          ].map(c => (
-            <div key={c.h}>
-              <div className="mono" style={{fontSize:11, color:"var(--ink-3)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:12}}>{c.h}</div>
-              {c.items.map(i => <a key={i} className="foot-link" href="#">{i}</a>)}
+          {Object.entries(LINKS).map(([heading, items]) => (
+            <div key={heading}>
+              <div className="mono" style={{fontSize:11, color:"var(--ink-3)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:12}}>{heading}</div>
+              {items.map(item => {
+                if (item.href) {
+                  return (
+                    <a key={item.label} className="foot-link"
+                       href={item.href}
+                       target={item.external ? "_blank" : undefined}
+                       rel={item.external ? "noreferrer" : undefined}>
+                      {item.label}{item.external ? " ↗" : ""}
+                    </a>
+                  );
+                }
+                if (item.action) {
+                  return (
+                    <a key={item.label} className="foot-link" href="#"
+                       onClick={(e) => { e.preventDefault(); item.action(); }}>
+                      {item.label}
+                    </a>
+                  );
+                }
+                return (
+                  <span key={item.label} className="foot-link foot-soon">{item.label}</span>
+                );
+              })}
             </div>
           ))}
         </div>
@@ -466,6 +604,7 @@ function Footer() {
         .wd-foot-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
         .foot-link { display:block; color: var(--ink-2); font-size: 13.5px; padding: 4px 0; }
         .foot-link:hover { color: var(--ink); }
+        .foot-soon { color: var(--ink-4) !important; cursor: default; }
         .wd-foot-bottom {
           max-width: 1280px; margin: 0 auto; padding: 24px 32px; border-top: 1px solid var(--line);
           display:flex; justify-content: space-between; color: var(--ink-3); font-size: 12px;

@@ -58,7 +58,7 @@ function Profile({ go, tweaks }) {
         {tab === "settings" && <Settings/>}
       </div>
 
-      <Footer/>
+      <Footer go={go}/>
 
       <style>{`
         .profile { position: relative; }

@@ -217,8 +217,9 @@ function Divider({ label }) {
 }
 
 function SignIn({ go }) {
-  const [email, setEmail] = React.useState("casey@northwind.dev");
-  const [pw, setPw] = React.useState("••••••••••");
+  const [email, setEmail] = React.useState("");
+  const [pw, setPw] = React.useState("");
+  const [forgotSent, setForgotSent] = React.useState(false);
   return (
     <div>
       <div className="chip" style={{marginBottom:14}}>
@@ -237,8 +238,12 @@ function SignIn({ go }) {
         type="password"
         value={pw}
         onChange={setPw}
-        hint="••••••••"
-        right={<a href="#">Forgot?</a>}
+        hint="at least 12 characters"
+        right={
+          forgotSent
+            ? <span style={{color:"var(--good)", fontSize:11}}>✓ Check your email</span>
+            : <a href="#" onClick={(e)=>{ e.preventDefault(); if(email.trim()) setForgotSent(true); }}>Forgot?</a>
+        }
       />
       <label className="remember">
         <input type="checkbox" defaultChecked/>

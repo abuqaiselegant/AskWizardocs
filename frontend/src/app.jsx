@@ -28,9 +28,10 @@ function App() {
         }
         setReady(true);
       } else if (event === "SIGNED_IN") {
-        // Fresh OAuth login — show landing so user sees their name in nav
+        // Fires for both fresh OAuth login AND silent token refreshes on tab refocus.
+        // Only navigate away if the user isn't already on a protected page.
         setUser(session.user);
-        setPage("landing");
+        setPage(p => ["chat", "profile"].includes(p) ? p : "landing");
       } else if (event === "SIGNED_OUT") {
         setUser(null);
         setPage("landing");

@@ -63,6 +63,8 @@ class AskResponse(BaseModel):
 def ask_endpoint(request: AskRequest, user_id: str = Depends(get_current_user)):
     if not request.question.strip():
         raise HTTPException(status_code=400, detail="question must not be empty")
+    if db.check_quota(user_id):
+        raise HTTPException(status_code=402, detail="Monthly query limit reached. Upgrade to Pro.")
     history = [{"role": t.role, "content": t.content} for t in request.history]
     result = ask(request.question, history)
     if request.chat_id:

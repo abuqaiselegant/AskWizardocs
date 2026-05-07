@@ -118,6 +118,19 @@ def _current_period() -> str:
     return today.replace(day=1).isoformat()
 
 
+FREE_QUERY_LIMIT = 100
+
+
+def check_quota(user_id: str) -> bool:
+    """Returns True if this free user has hit or exceeded their monthly limit."""
+    r = requests.get(_url("users_profile"), headers=_h(),
+                     params={"id": f"eq.{user_id}", "select": "plan"})
+    plan = r.json()[0]["plan"] if r.ok and r.json() else "free"
+    if plan != "free":
+        return False
+    return get_queries_used(user_id) >= FREE_QUERY_LIMIT
+
+
 def get_queries_used(user_id: str) -> int:
     r = requests.get(_url("query_usage"), headers=_h(),
                      params={"user_id": f"eq.{user_id}",

@@ -24,7 +24,13 @@ function Chat({ go, theme, toggleTheme, user }) {
   const [streaming, setStreaming]   = React.useState(false);
   const [hoveredCite, setHoveredCite] = React.useState(null);
   const [error, setError]           = React.useState(null);
+  const [proToast, setProToast]     = React.useState(null);
   const scrollRef = React.useRef(null);
+
+  const showProToast = (msg) => {
+    setProToast(msg);
+    setTimeout(() => setProToast(null), 4000);
+  };
 
   const authHdr = async () => {
     const { data: { session } } = await window._supabase.auth.getSession();
@@ -326,6 +332,7 @@ function Chat({ go, theme, toggleTheme, user }) {
                   m={m}
                   sources={allSources}
                   onHoverCite={setHoveredCite}
+                  onSave={() => showProToast("Saving answers is a Pro feature.")}
                 />
                 {!m.streamed && m.sources && m.sources.length > 0 && (
                   <SourceCards
@@ -340,10 +347,22 @@ function Chat({ go, theme, toggleTheme, user }) {
           </div>
         </div>
 
+        {proToast && (
+          <div className="pro-toast">
+            <I.Bookmark size={13}/>
+            <span>{proToast}</span>
+            <button className="btn primary" style={{padding:"5px 12px", fontSize:12}}
+              onClick={() => { go("landing"); setProToast(null); }}>
+              Upgrade to Pro →
+            </button>
+            <button className="pro-toast-x" onClick={() => setProToast(null)}>✕</button>
+          </div>
+        )}
+
         <div className="chat-compose">
           <SuggestedFollowups streaming={streaming} onPick={(t) => setInput(t)} />
           <div className="composer">
-            <button className="comp-btn" title="Clear"><I.Upload size={16} /></button>
+            <button className="comp-btn" title="Upload your own docs (Pro)" onClick={() => showProToast("Uploading your own docs is a Pro feature.")}><I.Upload size={16} /></button>
             <textarea
               placeholder="Ask about LangChain — e.g. 'How do agents work?' or 'Explain LCEL pipelines'"
               value={input}
@@ -535,6 +554,23 @@ function Chat({ go, theme, toggleTheme, user }) {
           font-size: 11px; color: var(--ink-4); letter-spacing: 0.02em;
         }
         .compose-foot span { display:inline-flex; align-items:center; gap: 6px; }
+        .pro-toast {
+          display: flex; align-items: center; gap: 10px;
+          padding: 10px 16px;
+          background: color-mix(in oklab, var(--accent) 8%, var(--surface));
+          border-top: 1px solid color-mix(in oklab, var(--accent) 30%, var(--line));
+          font-size: 13.5px; color: var(--ink);
+          animation: slideUp .2s ease both;
+        }
+        .pro-toast svg { color: var(--accent); flex-shrink: 0; }
+        .pro-toast span { flex: 1; }
+        .pro-toast-x {
+          width: 24px; height: 24px; display:grid; place-items:center;
+          border-radius: 6px; font-size: 14px; color: var(--ink-3);
+          transition: color .15s, background .15s;
+        }
+        .pro-toast-x:hover { color: var(--ink); background: var(--surface-3); }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
         @media (max-width: 1100px) {
           .chat { grid-template-columns: 80px 1fr; }
           .chat-side .new-chat span:not(.kbd), .chat-side .side-search input,
@@ -596,7 +632,7 @@ function UserBubble({ m }) {
   );
 }
 
-function AssistantMessage({ m, sources, onHoverCite }) {
+function AssistantMessage({ m, sources, onHoverCite, onSave }) {
   const body = m.text;
   return (
     <div className="asst">
@@ -624,7 +660,7 @@ function AssistantMessage({ m, sources, onHoverCite }) {
             <I.Copy size={13} /><span>Copy</span>
           </button>
           <button className="aa" title="Like"><I.Thumb size={13} /><span>Helpful</span></button>
-          <button className="aa" title="Save"><I.Bookmark size={13} /><span>Save</span></button>
+          <button className="aa" title="Save answer (Pro)" onClick={onSave}><I.Bookmark size={13} /><span>Save</span></button>
           <div style={{ flex: 1 }} />
           <div className="mono src-pills">
             {m.sources?.map(sid => {

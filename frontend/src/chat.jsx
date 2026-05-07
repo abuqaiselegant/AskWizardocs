@@ -53,7 +53,7 @@ function Chat({ go, theme, toggleTheme, user }) {
     })));
   };
 
-  // Load sidebar on mount; auto-open most recent chat
+  // Load sidebar on mount; open wd-open-chat if set (from profile page), else most recent
   React.useEffect(() => {
     (async () => {
       const h = await authHdr();
@@ -61,6 +61,19 @@ function Chat({ go, theme, toggleTheme, user }) {
       if (!res.ok) return;
       const chats = await res.json();
       setHistory(chats);
+
+      const openId = localStorage.getItem("wd-open-chat");
+      if (openId) {
+        localStorage.removeItem("wd-open-chat");
+        const pos = chats.findIndex(c => c.id === openId);
+        if (pos >= 0) {
+          setChatId(chats[pos].id);
+          setActiveId(chats[pos].id);
+          if (pos < 2) await loadChatMessages(chats[pos].id);
+          return;
+        }
+      }
+
       if (chats.length > 0) {
         setChatId(chats[0].id);
         setActiveId(chats[0].id);

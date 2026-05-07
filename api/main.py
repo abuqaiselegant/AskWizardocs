@@ -89,6 +89,17 @@ def get_messages(chat_id: str, user_id: str = Depends(get_current_user)):
     return db.get_chat_messages(chat_id)
 
 
+@app.get("/profile")
+def get_profile(user_id: str = Depends(get_current_user)):
+    return db.get_profile(user_id)
+
+
+@app.delete("/chats")
+def delete_chats(user_id: str = Depends(get_current_user)):
+    db.clear_chats(user_id)
+    return {"ok": True}
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}

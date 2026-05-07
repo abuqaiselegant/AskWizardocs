@@ -112,6 +112,32 @@ def save_messages(chat_id: str, user_content: str, assistant_content: str, sourc
     requests.post(_url("messages"), headers=_h(Prefer="return=minimal"), json=rows)
 
 
+def get_profile(user_id: str) -> dict:
+    r = requests.get(_url("users_profile"), headers=_h(),
+                     params={"id": f"eq.{user_id}", "select": "name,plan"})
+    profile = r.json()[0] if r.ok and r.json() else {"name": None, "plan": "free"}
+
+    r2 = requests.get(_url("workspaces"), headers=_h(),
+                      params={"owner_id": f"eq.{user_id}", "select": "id",
+                              "order": "created_at.asc", "limit": "1"})
+    ws = r2.json()[0]["id"] if r2.ok and r2.json() else None
+    chunks = 0
+    if ws:
+        r3 = requests.get(_url("chunk_usage"), headers=_h(),
+                          params={"workspace_id": f"eq.{ws}", "select": "chunks_indexed"})
+        chunks = r3.json()[0]["chunks_indexed"] if r3.ok and r3.json() else 0
+
+    return {**profile, "chunks_indexed": chunks}
+
+
+def clear_chats(user_id: str):
+    workspace_id = get_or_create_workspace(user_id)
+    if not workspace_id:
+        return
+    requests.delete(_url("chats"), headers=_h(Prefer="return=minimal"),
+                    params={"workspace_id": f"eq.{workspace_id}"})
+
+
 def get_chat_messages(chat_id: str) -> list:
     r = requests.get(_url("messages"), headers=_h(),
                      params={"chat_id": f"eq.{chat_id}",

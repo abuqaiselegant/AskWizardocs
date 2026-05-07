@@ -87,7 +87,7 @@ function Profile({ go, theme, toggleTheme, user }) {
 
         <div className="prof-stats" style={{gridTemplateColumns:"repeat(3, 1fr)"}}>
           <Stat k={loading ? "—" : chats.length} l="chats" trend="conversation history"/>
-          <Stat k={loading ? "—" : (profile.chunks_indexed || 0).toLocaleString()} l="indexed chunks" trend="LangChain docs"/>
+          <Stat k={loading ? "—" : (profile.chunks_indexed || 0).toLocaleString()} l="your docs" trend="Upload coming soon (Pro)"/>
           <Stat k={profile.plan || "free"} l="plan" trend={profile.plan === "pro" ? "Pro · all features" : "Free tier"}/>
         </div>
       </div>

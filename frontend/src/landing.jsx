@@ -48,11 +48,11 @@ function Landing({ go, theme, toggleTheme, user }) {
                 </>
               )}
               <div className="mono" style={{fontSize:12, color:"var(--ink-3)", marginLeft:"auto"}}>
-                <I.Dot size={10} style={{color:"var(--good)", verticalAlign:"middle"}}/> 5 sources live · LangChain · HuggingFace · MLflow · RAG · Vector DBs
+                <I.Dot size={10} style={{color:"var(--good)", verticalAlign:"middle"}}/> LangChain live · HuggingFace, MLflow & more coming soon
               </div>
             </div>
             <div className="trust">
-              <div className="mono tiny">indexed sources</div>
+              <div className="mono tiny">sources</div>
               <div className="logos">
                 {["LangChain","HuggingFace","MLflow","RAG writing","Vector DB blogs"].map(l => (
                   <div key={l} className="logo-word">{l}</div>
@@ -75,7 +75,7 @@ function Landing({ go, theme, toggleTheme, user }) {
           <div className="ticker-inner">
             {Array.from({length: 2}).map((_, r) => (
               <div key={r} className="ticker-row">
-                {["source · LangChain docs", "source · HuggingFace Transformers", "source · MLflow docs", "source · RAG & vector-DB blogs", "hybrid: BM25 + dense", "reranker: cross-encoder", "citations: always on", "bring-your-own docs · soon"].map((t,i)=>(
+                {["source · LangChain docs", "hybrid: BM25 + dense", "reranker: cross-encoder", "citations: always on", "HuggingFace · coming soon", "MLflow · coming soon", "RAG & vector-DB blogs · coming soon", "bring-your-own docs · soon"].map((t,i)=>(
                   <span key={i} className="tick">
                     <I.Dot size={8} style={{color:"var(--accent)"}}/> {t}
                   </span>

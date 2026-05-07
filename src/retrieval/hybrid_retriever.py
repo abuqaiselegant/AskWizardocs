@@ -20,7 +20,6 @@ Input:  query string
 Output: list of chunk dicts ranked by combined RRF score
 """
 
-# add this import at the top of hybrid_retriever.py
 from src.retrieval.reranker import rerank
 from src.retrieval.bm25_retriever import search as bm25_search
 from src.retrieval.vector_retriever import search as vector_search
@@ -99,18 +98,6 @@ def search_with_rerank(query: str) -> list[dict]:
 
 
 # ── Quick test ────────────────────────────────────────────────────────────────
-# if __name__ == "__main__":
-#     query = "How do LangChain agents work?"
-#     results = search(query, k=5)
-
-#     print(f"Query: {query}\n")
-#     for i, r in enumerate(results):
-#         print(f"--- Result {i+1} (RRF score: {r['rrf_score']}) ---")
-#         print(f"Title: {r['title']}")
-#         print(f"URL:   {r['url']}")
-#         print(f"Text:  {r['text'][:200]}...")
-#         print()
-
 if __name__ == "__main__":
     query = "How do LangChain agents work?"
 

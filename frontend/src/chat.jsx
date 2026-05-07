@@ -282,7 +282,7 @@ function Chat({ go, theme, toggleTheme, user }) {
         <header className="chat-head">
           <div>
             <div className="mono" style={{ fontSize: 11, color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-              AskMyDocs · hybrid BM25 + vector · cross-encoder rerank
+              Wizardocs · hybrid BM25 + vector · cross-encoder rerank
             </div>
             <h1 className="chat-title">
               {messages.find(m => m.role === "user")?.text.slice(0, 72) || "LangChain Q&A"}

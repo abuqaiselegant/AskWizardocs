@@ -1,6 +1,6 @@
 ================================================================================
 WIZARDOCS — COMPLETE PROJECT SUMMARY
-Last updated: 2026-05-08
+Last updated: 2026-05-08 (second audit)
 ================================================================================
 
 ────────────────────────────────────────────────────────────────────────────────
@@ -127,6 +127,8 @@ REAL (fully working):
   OK  Query counter in chat — progress bar in source bar, turns red at 100
   OK  Query limit wall — compose area replaced with upgrade prompt at 100 queries
   OK  Pro gate toasts — Save and Upload buttons notify free users to upgrade
+  OK  Profile stats — shows real chats, your docs (0 until BYOD), plan
+  OK  Landing ticker / trust section — accurate (LangChain live, rest coming soon)
 
 FAKE / NOT YET IMPLEMENTED:
   NO  Bookmarks/saved answers — empty state shown, no backend, pro feature

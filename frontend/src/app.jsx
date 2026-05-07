@@ -32,7 +32,8 @@ function App() {
     const { data: { subscription } } = sb.auth.onAuthStateChange((event, session) => {
       if (session) {
         setUser(session.user);
-        setPage("chat");
+        // After OAuth redirect land on home so user sees the authenticated nav
+        if (event === "SIGNED_IN") setPage("landing");
       } else {
         setUser(null);
         setPage("landing");
@@ -70,7 +71,7 @@ function App() {
 
   return (
     <div>
-      {page === "landing" && <Landing  go={go} theme={theme} toggleTheme={toggleTheme}/>}
+      {page === "landing" && <Landing  go={go} theme={theme} toggleTheme={toggleTheme} user={user}/>}
       {page === "signin"  && <AuthShell go={go}/>}
       {page === "signup"  && <AuthShell go={go}/>}
       {page === "chat"    && <Chat     go={go} theme={theme} toggleTheme={toggleTheme} user={user}/>}

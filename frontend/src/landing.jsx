@@ -1,9 +1,9 @@
 // Landing page — hero with shelf, how it works, features, footer
 
-function Landing({ go, theme, toggleTheme }) {
+function Landing({ go, theme, toggleTheme, user }) {
   return (
     <div className="landing page-enter">
-      <Nav go={go} theme={theme} toggleTheme={toggleTheme}/>
+      <Nav go={go} theme={theme} toggleTheme={toggleTheme} user={user}/>
 
       {/* Hero */}
       <section className="hero">
@@ -33,12 +33,20 @@ function Landing({ go, theme, toggleTheme }) {
               Wizardocs is a domain-specific Q&A system for ML and LLM documentation. Ask a question — get a cited, accurate answer drawn exclusively from LangChain, HuggingFace, MLflow, and the best RAG & vector-DB writing on the internet.
             </p>
             <div className="cta-row">
-              <button className="btn primary" onClick={() => go("signup")}>
-                Start for free <I.Arrow size={14}/>
-              </button>
-              <button className="btn" onClick={() => go("chat")}>
-                See a live demo
-              </button>
+              {user ? (
+                <button className="btn primary" onClick={() => go("chat")}>
+                  Go to chat <I.Arrow size={14}/>
+                </button>
+              ) : (
+                <>
+                  <button className="btn primary" onClick={() => go("signup")}>
+                    Start for free <I.Arrow size={14}/>
+                  </button>
+                  <button className="btn" onClick={() => go("chat")}>
+                    See a live demo
+                  </button>
+                </>
+              )}
               <div className="mono" style={{fontSize:12, color:"var(--ink-3)", marginLeft:"auto"}}>
                 <I.Dot size={10} style={{color:"var(--good)", verticalAlign:"middle"}}/> 5 sources live · LangChain · HuggingFace · MLflow · RAG · Vector DBs
               </div>
@@ -259,8 +267,14 @@ function Landing({ go, theme, toggleTheme }) {
             Start free on up to 5,000 chunks. No credit card. Your first query in under three minutes.
           </p>
           <div className="cta-row" style={{justifyContent:"center", marginTop: 24}}>
-            <button className="btn primary" onClick={() => go("signup")}>Start for free <I.Arrow size={14}/></button>
-            <button className="btn" onClick={() => go("signin")}>I have an account</button>
+            {user ? (
+              <button className="btn primary" onClick={() => go("chat")}>Go to chat <I.Arrow size={14}/></button>
+            ) : (
+              <>
+                <button className="btn primary" onClick={() => go("signup")}>Start for free <I.Arrow size={14}/></button>
+                <button className="btn" onClick={() => go("signin")}>I have an account</button>
+              </>
+            )}
           </div>
         </div>
       </section>

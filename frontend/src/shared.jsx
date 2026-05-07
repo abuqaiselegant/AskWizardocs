@@ -9,7 +9,10 @@ function goSection(sectionId, go) {
   }, 120);
 }
 
-function Nav({ go, toggleTheme, theme }) {
+function Nav({ go, toggleTheme, theme, user }) {
+  const name    = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split("@")[0] || "";
+  const initial = name ? name[0].toUpperCase() : "";
+
   return (
     <nav className="wd-nav">
       <button className="wd-logo" onClick={() => go("landing")}>
@@ -28,8 +31,22 @@ function Nav({ go, toggleTheme, theme }) {
             {theme === "dark" ? <I.Sun size={15}/> : <I.Moon size={15}/>}
           </button>
         )}
-        <button className="btn ghost" onClick={() => go("signin")}>Sign in</button>
-        <button className="btn primary" onClick={() => go("signup")}>Get started <I.Arrow size={14}/></button>
+        {user ? (
+          <>
+            <button className="nav-user-btn" onClick={() => go("profile")}>
+              <span className="nav-avatar">{initial}</span>
+              <span className="nav-user-name">{name}</span>
+            </button>
+            <button className="btn primary" onClick={() => goSection("pricing", go)}>
+              Go Pro <I.Arrow size={14}/>
+            </button>
+          </>
+        ) : (
+          <>
+            <button className="btn ghost" onClick={() => go("signin")}>Sign in</button>
+            <button className="btn primary" onClick={() => go("signup")}>Get started <I.Arrow size={14}/></button>
+          </>
+        )}
       </div>
       <style>{`
         .wd-nav {
@@ -53,6 +70,22 @@ function Nav({ go, toggleTheme, theme }) {
         .wd-nav-links a:hover { color: var(--ink); }
         .wd-nav-actions { display:flex; gap: 10px; justify-self: end; align-items:center; }
         .nav-theme-toggle { padding: 8px 10px; }
+        .nav-user-btn {
+          display:inline-flex; align-items:center; gap: 8px;
+          padding: 5px 12px 5px 5px;
+          border-radius: 999px; border: 1px solid var(--line-2);
+          background: var(--surface);
+          font-size: 13.5px; font-weight: 500;
+          transition: border-color .15s, background .15s;
+        }
+        .nav-user-btn:hover { border-color: var(--accent); background: var(--surface-2); }
+        .nav-avatar {
+          width: 26px; height: 26px; border-radius: 50%;
+          background: linear-gradient(135deg, var(--accent), var(--accent-2));
+          color: #0a0a0f; font-weight: 700; font-size: 12px;
+          display:grid; place-items:center; flex-shrink:0;
+        }
+        .nav-user-name { max-width: 100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         @media (max-width: 880px) {
           .wd-nav { grid-template-columns: 1fr auto; padding: 14px 20px; }
           .wd-nav-links { display:none; }

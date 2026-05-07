@@ -4,86 +4,69 @@ const DOC_SOURCES = [
   { id: "langchain", label: "LangChain", dot: "#2ca190", n: 3235 },
 ];
 
-const INITIAL_HISTORY = [
-  { id: "c1", title: "How do LangChain agents work?", time: "pinned", pinned: true },
-  { id: "c2", title: "What is LCEL (LangChain Expression Language)?", time: "recent" },
-  { id: "c3", title: "How does RetrievalQA compose with a retriever?", time: "recent" },
-];
-
-// Demo sources shown in the initial seeded conversation
-const DEMO_SOURCES = [
-  {
-    id: 1,
-    title: "Agents — LangChain documentation",
-    source: "LangChain",
-    url: "python.langchain.com/docs/modules/agents/",
-    chunk: "Agents use an LLM to determine which actions to take and in what order. An action can be using a tool and observing its output, or returning a response to the user. The agent loop runs until a stopping condition is met.",
-    score: 0.92,
-  },
-  {
-    id: 2,
-    title: "Tools — LangChain documentation",
-    source: "LangChain",
-    url: "python.langchain.com/docs/modules/agents/tools/",
-    chunk: "Tools are interfaces that an agent, chain, or LLM can use to interact with the world. They combine a name, description, and a function. The description is used by the LLM to decide when to call the tool.",
-    score: 0.87,
-  },
-  {
-    id: 3,
-    title: "AgentExecutor — LangChain documentation",
-    source: "LangChain",
-    url: "python.langchain.com/docs/modules/agents/agent_types/",
-    chunk: "AgentExecutor is the runtime for an agent. It calls the agent, executes the actions the agent selects, passes the action outputs back to the agent, and repeats until the agent finishes.",
-    score: 0.83,
-  },
-];
-
-const DEMO_ANSWER = "LangChain agents use an LLM as a reasoning engine to decide which **actions** to take and in what order[1]. The core loop is: (1) the LLM receives the current state (prompt + past observations) and outputs an action, (2) the action calls a **tool**, (3) the tool's output is fed back as an observation, and the loop repeats until a final answer is produced[1].\n\nTools are the interfaces agents use to interact with the world — each tool has a name, description, and callable function[2]. The LLM picks which tool to call based on the description.\n\n**AgentExecutor** is the runtime that drives the loop: it calls the agent, executes tool actions, and passes results back until the agent signals it's done[3].";
+function fmtTime(iso) {
+  if (!iso) return "";
+  const d = new Date(iso), now = new Date();
+  const h = (now - d) / 3600000;
+  if (h < 1)  return "just now";
+  if (h < 24) return `${Math.floor(h)}h ago`;
+  if (h < 48) return "yesterday";
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
 
 function Chat({ go, theme, toggleTheme, user }) {
-  const [history, setHistory] = React.useState(INITIAL_HISTORY);
-  const [activeId, setActiveId] = React.useState("c1");
-  const [input, setInput] = React.useState("");
-  const [streaming, setStreaming] = React.useState(false);
+  const [history, setHistory]       = React.useState([]);
+  const [activeId, setActiveId]     = React.useState(null);
+  const [chatId, setChatId]         = React.useState(null);
+  const [messages, setMessages]     = React.useState([]);
+  const [allSources, setAllSources] = React.useState([]);
+  const [input, setInput]           = React.useState("");
+  const [streaming, setStreaming]   = React.useState(false);
   const [hoveredCite, setHoveredCite] = React.useState(null);
-  const [error, setError] = React.useState(null);
+  const [error, setError]           = React.useState(null);
   const scrollRef = React.useRef(null);
 
-  // All sources ever seen (demo + real API). Keyed by id (number).
-  const [allSources, setAllSources] = React.useState(DEMO_SOURCES);
+  const authHdr = async () => {
+    const { data: { session } } = await window._supabase.auth.getSession();
+    return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+  };
 
-  const [messages, setMessages] = React.useState([
-    {
-      role: "user",
-      text: "How do LangChain agents work?",
-      at: "11:04",
-    },
-    {
-      role: "assistant",
-      text: "",
-      sources: [1, 2, 3],
-      confidence: 0.87,
-      at: "11:04",
-      streamed: true,
-      full: DEMO_ANSWER,
-    },
-  ]);
+  const loadChatMessages = async (id) => {
+    const h = await authHdr();
+    const res = await fetch(`${window.API_BASE}/chats/${id}/messages`, { headers: h });
+    if (!res.ok) return;
+    const msgs = await res.json();
+    const srcs = [];
+    msgs.forEach(m => (m.sources_json || []).forEach(s => srcs.push({
+      id: s.number, title: s.title, source: "LangChain", url: s.url, chunk: "", score: 0.8,
+    })));
+    setAllSources(prev => {
+      const byId = Object.fromEntries(prev.map(s => [s.id, s]));
+      srcs.forEach(s => { byId[s.id] = s; });
+      return Object.values(byId);
+    });
+    setMessages(msgs.map(m => ({
+      role: m.role, text: m.content, streamed: false,
+      sources: (m.sources_json || []).map(s => s.number),
+      at: new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      confidence: (m.sources_json?.length || 0) >= 4 ? 0.88 : (m.sources_json?.length || 0) >= 2 ? 0.78 : 0.62,
+    })));
+  };
 
-  // Animate the seeded assistant message on mount
+  // Load sidebar on mount; auto-open most recent chat
   React.useEffect(() => {
-    const msg = messages.find(m => m.role === "assistant" && m.streamed);
-    if (!msg) return;
-    let i = 0;
-    const speed = Math.max(3, Math.floor(msg.full.length / 120));
-    const id = setInterval(() => {
-      i += speed;
-      setMessages(ms => ms.map(m => m === msg ? { ...m, text: msg.full.slice(0, i) } : m));
-      if (i >= msg.full.length) {
-        clearInterval(id);
-        setMessages(ms => ms.map(m => m === msg ? { ...m, text: msg.full, streamed: false } : m));
+    (async () => {
+      const h = await authHdr();
+      const res = await fetch(`${window.API_BASE}/chats`, { headers: h });
+      if (!res.ok) return;
+      const chats = await res.json();
+      setHistory(chats);
+      if (chats.length > 0) {
+        setChatId(chats[0].id);
+        setActiveId(chats[0].id);
+        await loadChatMessages(chats[0].id);
       }
-    }, 40);
-    return () => clearInterval(id);
+    })();
   }, []);
 
   React.useEffect(() => {
@@ -96,26 +79,41 @@ function Chat({ go, theme, toggleTheme, user }) {
     setInput("");
     setError(null);
 
+    // Capture context BEFORE updating messages state
+    const historyForContext = messages.slice(-6).map(m => ({ role: m.role, content: m.text }));
+
     const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const userMsg = { role: "user", text: q, at: now };
     const stub = { role: "assistant", text: "", sources: [], confidence: 0, at: now, streamed: true };
     setMessages(ms => [...ms, userMsg, stub]);
     setStreaming(true);
 
-    // Add to sidebar history
-    const newEntry = { id: "h" + Date.now(), title: q.slice(0, 60) + (q.length > 60 ? "…" : ""), time: "just now" };
-    setHistory(h => [newEntry, ...h]);
-    setActiveId(newEntry.id);
+    const h = await authHdr();
+    const hdrs = { "Content-Type": "application/json", ...h };
+
+    // Create chat if this is a new conversation
+    let currentChatId = chatId;
+    if (!currentChatId) {
+      const cr = await fetch(`${window.API_BASE}/chats`, {
+        method: "POST", headers: hdrs,
+        body: JSON.stringify({ title: q.slice(0, 80) }),
+      });
+      if (cr.ok) {
+        const { chat_id } = await cr.json();
+        currentChatId = chat_id;
+        setChatId(chat_id);
+        // Refresh sidebar so cap enforcement is reflected
+        const lr = await fetch(`${window.API_BASE}/chats`, { headers: h });
+        if (lr.ok) setHistory(await lr.json());
+        setActiveId(chat_id);
+      }
+    }
 
     try {
-      const { data: { session } } = await window._supabase.auth.getSession();
       const res = await fetch(`${window.API_BASE}/ask`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session?.access_token ?? ""}`,
-        },
-        body: JSON.stringify({ question: q }),
+        headers: hdrs,
+        body: JSON.stringify({ question: q, chat_id: currentChatId, history: historyForContext }),
       });
 
       if (!res.ok) {
@@ -190,6 +188,7 @@ function Chat({ go, theme, toggleTheme, user }) {
 
         <button className="new-chat" onClick={() => {
           setMessages([]);
+          setChatId(null);
           setActiveId(null);
           setInput("");
           setError(null);
@@ -205,16 +204,25 @@ function Chat({ go, theme, toggleTheme, user }) {
         </div>
 
         <div className="side-group">
-          <div className="side-group-head mono">Pinned</div>
-          {history.filter(h => h.pinned).map(h => (
-            <HistItem key={h.id} h={h} active={h.id === activeId} onClick={() => setActiveId(h.id)} />
-          ))}
-        </div>
-
-        <div className="side-group">
           <div className="side-group-head mono">Recent</div>
-          {history.filter(h => !h.pinned).map(h => (
-            <HistItem key={h.id} h={h} active={h.id === activeId} onClick={() => setActiveId(h.id)} />
+          {history.map((h, i) => (
+            <HistItem
+              key={h.id}
+              h={{ ...h, time: fmtTime(h.created_at) }}
+              active={h.id === activeId}
+              onClick={async () => {
+                setActiveId(h.id);
+                if (i < 2) {
+                  // has messages in DB — load them
+                  setChatId(h.id);
+                  await loadChatMessages(h.id);
+                } else {
+                  // title-only — clicking starts a new thread on next send
+                  setMessages([]);
+                  setChatId(null);
+                }
+              }}
+            />
           ))}
         </div>
 

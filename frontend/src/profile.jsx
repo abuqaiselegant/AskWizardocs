@@ -1,8 +1,16 @@
 // Profile page — timeline history, saved bookmarks, settings
 const ConfidenceMeter = window.ConfidenceMeter;
 
-function Profile({ go, theme, toggleTheme }) {
+function Profile({ go, theme, toggleTheme, user }) {
   const [tab, setTab] = React.useState("history");
+
+  const name    = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split("@")[0] || "You";
+  const initial = name[0].toUpperCase();
+  const email   = user?.email || "";
+  const joined  = user?.created_at
+    ? new Date(user.created_at).toLocaleDateString("en-GB", { month: "short", year: "numeric" })
+    : "";
+
   return (
     <div className="profile page-enter">
       <Nav go={go} theme={theme} toggleTheme={toggleTheme}/>
@@ -11,19 +19,18 @@ function Profile({ go, theme, toggleTheme }) {
         <div className="prof-bg"/>
         <div className="prof-hero-inner">
           <div className="prof-avatar-wrap">
-            <div className="prof-avatar">C</div>
+            <div className="prof-avatar">{initial}</div>
             <div className="prof-avatar-ring"/>
           </div>
           <div>
             <div className="mono" style={{fontSize:11, letterSpacing:"0.08em", color:"var(--ink-3)", textTransform:"uppercase"}}>
-              <span style={{color:"var(--good)"}}>●</span> online · workspace: northwind
+              <span style={{color:"var(--good)"}}>●</span> online · {email}
             </div>
             <h1 className="prof-name">
-              Casey Ng
-              <span className="serif-it" style={{color:"var(--ink-3)", marginLeft:12}}>— knowledge engineer</span>
+              {name}
             </h1>
             <p className="muted" style={{maxWidth:560}}>
-              Joined Feb 2026. Indexed 312 docs, asked 1,847 questions, and saved 26 answers worth coming back to.
+              {joined ? `Joined ${joined}.` : ""} Signed in with Google.
             </p>
           </div>
           <div style={{flex:1}}/>

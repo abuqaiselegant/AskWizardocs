@@ -98,14 +98,6 @@ function OAuthPanel({ go }) {
           <span>Continue with Google</span>
         </button>
 
-        <button
-          className="oauth-btn"
-          onClick={() => signIn("github")}
-          disabled={!!loading}
-        >
-          {loading === "github" ? <span className="spin-sm"/> : <I.Github size={18}/>}
-          <span>Continue with GitHub</span>
-        </button>
       </div>
 
       {error && (

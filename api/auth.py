@@ -1,42 +1,35 @@
 """
 auth.py — Supabase JWT verification for FastAPI.
-
-Usage:
-    from api.auth import get_current_user
-
-    @app.post("/ask")
-    def ask_endpoint(request: AskRequest, user_id: str = Depends(get_current_user)):
-        ...
+Supabase signs tokens with ES256 (ECDSA P-256); keys are fetched from JWKS.
 """
 
 import os
 import jwt
+from jwt import PyJWKClient
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 _security = HTTPBearer()
 
+_SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
+_JWKS_URL = f"{_SUPABASE_URL}/auth/v1/.well-known/jwks.json"
+_jwks_client = PyJWKClient(_JWKS_URL)
+
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(_security),
 ) -> str:
-    """
-    Verify Supabase JWT and return the user_id (sub claim).
-    Raises 401 if the token is missing, expired, or invalid.
-    """
-    secret = os.getenv("SUPABASE_JWT_SECRET")
-    if not secret:
-        raise HTTPException(status_code=500, detail="SUPABASE_JWT_SECRET not configured")
-
+    token = credentials.credentials
     try:
+        signing_key = _jwks_client.get_signing_key_from_jwt(token)
         payload = jwt.decode(
-            credentials.credentials,
-            secret,
-            algorithms=["HS256"],
+            token,
+            signing_key,
+            algorithms=["ES256"],
             audience="authenticated",
         )
         return payload["sub"]
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
+    except jwt.InvalidTokenError as e:
         raise HTTPException(status_code=401, detail="Invalid token")

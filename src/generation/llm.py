@@ -13,17 +13,17 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 MODEL  = "gpt-4o-mini"
 
 
-def generate(query: str, context: str) -> str:
+def generate(query: str, context: str, history: list[dict] | None = None) -> str:
     """
-    Send query + numbered context to GPT-4o-mini, return the raw answer string.
-    Temperature 0 for deterministic, citation-grounded responses.
+    Send query + context (+ optional conversation history) to GPT-4o-mini.
+    history: [{"role": "user"|"assistant", "content": str}, ...] oldest-first.
     """
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    for turn in (history or []):
+        messages.append({"role": turn["role"], "content": turn["content"]})
+    messages.append({"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query}"})
+
     response = client.chat.completions.create(
-        model    = MODEL,
-        messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user",   "content": f"Context:\n{context}\n\nQuestion: {query}"},
-        ],
-        temperature = 0,
+        model=MODEL, messages=messages, temperature=0,
     )
     return response.choices[0].message.content.strip()

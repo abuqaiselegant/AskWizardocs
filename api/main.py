@@ -8,12 +8,16 @@ Endpoints:
 """
 
 import os
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from api.auth import get_current_user
+from api import db
 from src.generation.generator import ask
 
 app = FastAPI(title="AskMyDocs", version="1.0.0")
@@ -28,8 +32,17 @@ app.add_middleware(
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
+class Turn(BaseModel):
+    role: str
+    content: str
+
 class AskRequest(BaseModel):
     question: str
+    chat_id:  str | None = None
+    history:  list[Turn] = []
+
+class CreateChatRequest(BaseModel):
+    title: str
 
 
 class Source(BaseModel):
@@ -48,13 +61,39 @@ class AskResponse(BaseModel):
 def ask_endpoint(request: AskRequest, user_id: str = Depends(get_current_user)):
     if not request.question.strip():
         raise HTTPException(status_code=400, detail="question must not be empty")
-    result = ask(request.question)
+    history = [{"role": t.role, "content": t.content} for t in request.history]
+    result = ask(request.question, history)
+    if request.chat_id:
+        try:
+            db.save_messages(request.chat_id, request.question, result["answer"], result["sources"])
+        except Exception:
+            pass
     return result
+
+
+@app.post("/chats")
+def create_chat(body: CreateChatRequest, user_id: str = Depends(get_current_user)):
+    chat_id = db.create_chat(user_id, body.title)
+    if not chat_id:
+        raise HTTPException(status_code=500, detail="Failed to create chat")
+    return {"chat_id": chat_id}
+
+
+@app.get("/chats")
+def list_chats(user_id: str = Depends(get_current_user)):
+    return db.get_chats(user_id)
+
+
+@app.get("/chats/{chat_id}/messages")
+def get_messages(chat_id: str, user_id: str = Depends(get_current_user)):
+    return db.get_chat_messages(chat_id)
 
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
 
 
 # ── Frontend ───────────────────────────────────────────────────────────────────

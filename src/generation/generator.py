@@ -8,32 +8,25 @@ from src.generation.llm      import generate as llm_generate
 from src.generation.parser   import extract_citations
 
 
-def generate(query: str, chunks: list[dict]) -> dict:
-    """
-    Format chunks → call LLM → parse citations.
-
-    Args:
-        query:  user question
-        chunks: top-5 reranked chunk dicts from search_with_rerank()
-
-    Returns:
-        {
-            "answer":  str,
-            "sources": [{"number": int, "title": str, "url": str}, ...]
-        }
-    """
+def generate(query: str, chunks: list[dict], history: list[dict] | None = None) -> dict:
     context = format_context(chunks)
-    answer  = llm_generate(query, context)
+    answer  = llm_generate(query, context, history)
     sources = extract_citations(answer, chunks)
     return {"answer": answer, "sources": sources}
 
 
-def ask(query: str) -> dict:
-    """
-    Full RAG pipeline: retrieve → generate → return answer + sources.
-    """
-    chunks = search_with_rerank(query)
-    return generate(query, chunks)
+def ask(query: str, history: list[dict] | None = None) -> dict:
+    # For follow-up questions ("give in description", "summarise", etc.) the bare
+    # query has no retrievable keywords. Prepend the last user turn so the
+    # retriever searches in the right topic area.
+    retrieval_query = query
+    if history:
+        last_user = next((h["content"] for h in reversed(history) if h["role"] == "user"), None)
+        if last_user:
+            retrieval_query = f"{last_user} {query}"
+
+    chunks = search_with_rerank(retrieval_query)
+    return generate(query, chunks, history)
 
 
 # ── Quick test ────────────────────────────────────────────────────────────────

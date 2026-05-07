@@ -27,3 +27,23 @@ def generate(query: str, context: str, history: list[dict] | None = None) -> str
         model=MODEL, messages=messages, temperature=0,
     )
     return response.choices[0].message.content.strip()
+
+
+def generate_followups(question: str, answer: str) -> list[str]:
+    prompt = (
+        "Suggest exactly 3 short follow-up questions a user might ask next, "
+        "based on this Q&A. Each must be specific, under 80 chars, and answerable "
+        "from LangChain documentation. Return only the 3 questions, one per line, no numbering.\n\n"
+        f"Q: {question}\nA: {answer[:400]}"
+    )
+    try:
+        r = client.chat.completions.create(
+            model=MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_tokens=150,
+        )
+        lines = [l.strip() for l in r.choices[0].message.content.splitlines() if l.strip()]
+        return lines[:3]
+    except Exception:
+        return []

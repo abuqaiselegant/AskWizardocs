@@ -27,6 +27,7 @@ function Chat({ go, theme, toggleTheme, user }) {
   const [proToast, setProToast]     = React.useState(null);
   const [queriesUsed, setQueriesUsed] = React.useState(0);
   const [plan, setPlan]             = React.useState("free");
+  const [followups, setFollowups]   = React.useState([]);
   const scrollRef = React.useRef(null);
 
   const QUERY_LIMIT = 100;
@@ -110,6 +111,7 @@ function Chat({ go, theme, toggleTheme, user }) {
     const q = input.trim();
     setInput("");
     setError(null);
+    setFollowups([]);
 
     // Capture context BEFORE updating messages state
     const historyForContext = messages.slice(-6).map(m => ({ role: m.role, content: m.text }));
@@ -173,8 +175,9 @@ function Chat({ go, theme, toggleTheme, user }) {
       });
 
       const sourceIds = data.sources.map(s => s.number);
-      const confidence = sourceIds.length >= 4 ? 0.88 : sourceIds.length >= 2 ? 0.78 : 0.62;
+      const confidence = data.confidence || 0.78;
       const reply = data.answer;
+      const followupSuggestions = data.followups || [];
 
       // Animate text streaming
       let i = 0;
@@ -193,6 +196,7 @@ function Chat({ go, theme, toggleTheme, user }) {
               : m
           ));
           setQueriesUsed(prev => prev + 1);
+          setFollowups(followupSuggestions);
           setStreaming(false);
         }
       }, 18);
@@ -225,6 +229,7 @@ function Chat({ go, theme, toggleTheme, user }) {
           setActiveId(null);
           setInput("");
           setError(null);
+          setFollowups([]);
         }}>
           <I.Plus size={14} />
           <span>New conversation</span>
@@ -390,7 +395,7 @@ function Chat({ go, theme, toggleTheme, user }) {
           </div>
         ) : (
         <div className="chat-compose">
-          <SuggestedFollowups streaming={streaming} onPick={(t) => setInput(t)} />
+          <SuggestedFollowups streaming={streaming} followups={followups} onPick={(t) => setInput(t)} />
           <div className="composer">
             <button className="comp-btn" title="Upload your own docs (Pro)" onClick={() => showProToast("Uploading your own docs is a Pro feature.")}><I.Upload size={16} /></button>
             <textarea
@@ -938,16 +943,11 @@ function ConfidenceMeter({ value = 0.85 }) {
   );
 }
 
-function SuggestedFollowups({ streaming, onPick }) {
-  if (streaming) return null;
-  const picks = [
-    "How does LCEL pipeline composition work?",
-    "What are LangChain memory types?",
-    "Explain hybrid retrieval with BM25 and vector search",
-  ];
+function SuggestedFollowups({ streaming, followups, onPick }) {
+  if (streaming || !followups.length) return null;
   return (
     <div className="sugg">
-      {picks.map((p, i) => (
+      {followups.map((p, i) => (
         <button key={i} className="sugg-pill" onClick={() => onPick(p)}>
           <I.Spark size={11} /> {p}
         </button>

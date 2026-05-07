@@ -52,8 +52,10 @@ class Source(BaseModel):
 
 
 class AskResponse(BaseModel):
-    answer:  str
-    sources: list[Source]
+    answer:     str
+    sources:    list[Source]
+    confidence: float = 0.78
+    followups:  list[str] = []
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────

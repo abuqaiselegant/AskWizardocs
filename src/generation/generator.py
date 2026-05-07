@@ -4,7 +4,7 @@ generator.py — Phase 4 entry point. ask(query) → answer + cited sources.
 
 from src.retrieval.hybrid_retriever import search_with_rerank
 from src.generation.formatter import format_context
-from src.generation.llm      import generate as llm_generate
+from src.generation.llm      import generate as llm_generate, generate_followups
 from src.generation.parser   import extract_citations
 
 
@@ -12,7 +12,9 @@ def generate(query: str, chunks: list[dict], history: list[dict] | None = None) 
     context = format_context(chunks)
     answer  = llm_generate(query, context, history)
     sources = extract_citations(answer, chunks)
-    return {"answer": answer, "sources": sources}
+    # Use top reranked chunk's score as confidence (reranker returns 0-1)
+    confidence = round(chunks[0].get("rerank_score", 0.78), 4) if chunks else 0.62
+    return {"answer": answer, "sources": sources, "confidence": confidence}
 
 
 def ask(query: str, history: list[dict] | None = None) -> dict:
@@ -26,7 +28,9 @@ def ask(query: str, history: list[dict] | None = None) -> dict:
             retrieval_query = f"{last_user} {query}"
 
     chunks = search_with_rerank(retrieval_query)
-    return generate(query, chunks, history)
+    result = generate(query, chunks, history)
+    result["followups"] = generate_followups(query, result["answer"])
+    return result
 
 
 # ── Quick test ────────────────────────────────────────────────────────────────

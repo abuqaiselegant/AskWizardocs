@@ -376,7 +376,9 @@ function Settings({ user, profile, go, onClearHistory }) {
             <div style={{display:"flex", alignItems:"center", gap:12}}>
               <span className="plan-badge">{plan === "pro" ? "Pro" : "Free"}</span>
               {plan !== "pro" && (
-                <button className="btn" onClick={() => go("landing")}>Upgrade to Pro →</button>
+                <button className="btn" onClick={() => go("landing")}>
+                  Upgrade for bookmarks, own docs &amp; unlimited queries →
+                </button>
               )}
             </div>
           </div>

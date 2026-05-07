@@ -174,7 +174,12 @@ function Landing({ go, theme, toggleTheme, user }) {
               name: "Free",
               price: "$0",
               note: "forever",
-              features: ["Up to 5,000 indexed chunks", "100 queries / month", "LangChain doc index included", "API access"],
+              features: [
+                "Ask anything — LangChain docs included",
+                "10 chats stored, messages kept for 2 most recent",
+                "100 queries / month",
+                "Inline citations + confidence meter",
+              ],
               cta: "Start free",
               action: () => go("signup"),
               primary: false,
@@ -183,7 +188,14 @@ function Landing({ go, theme, toggleTheme, user }) {
               name: "Pro",
               price: "$29",
               note: "/ month",
-              features: ["Unlimited indexed chunks", "Unlimited queries", "Bring-your-own docs", "Priority reranking queue", "Eval history & CI gate"],
+              features: [
+                "Save & bookmark answers",
+                "Upload your own docs (PDFs, Markdown, Notion)",
+                "Full history — messages kept for all 10 chats",
+                "Export conversations as Markdown or PDF",
+                "Unlimited queries",
+                "Ask across multiple doc sources at once",
+              ],
               cta: "Get started",
               action: () => go("signup"),
               primary: true,
@@ -192,7 +204,13 @@ function Landing({ go, theme, toggleTheme, user }) {
               name: "Team",
               price: "$99",
               note: "/ month",
-              features: ["Everything in Pro", "Up to 20 seats", "Shared workspaces", "SSO / SAML", "Dedicated support"],
+              features: [
+                "Everything in Pro",
+                "Up to 20 seats",
+                "Shared workspaces",
+                "SSO / SAML",
+                "Dedicated support",
+              ],
               cta: "Contact us",
               action: null,
               primary: false,
@@ -264,7 +282,7 @@ function Landing({ go, theme, toggleTheme, user }) {
           <div className="cta-bg"/>
           <h2 className="h2" style={{marginBottom: 10}}>Your library. Finally answering back.</h2>
           <p className="muted" style={{maxWidth: 520, marginInline:"auto"}}>
-            Start free on up to 5,000 chunks. No credit card. Your first query in under three minutes.
+            Start free — no credit card. 100 queries a month, LangChain docs included. Your first answer in under a minute.
           </p>
           <div className="cta-row" style={{justifyContent:"center", marginTop: 24}}>
             {user ? (

@@ -14,29 +14,30 @@ function App() {
   });
 
   React.useEffect(() => {
-    // Restore last page only after we know the session state
-    sb.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setUser(session.user);
-        // If the user was mid-session, restore their last page (chat or profile)
-        const last = localStorage.getItem("wd-page");
-        setPage(last && ["chat", "profile"].includes(last) ? last : "chat");
-      } else {
-        // No session — always start on landing (never restore a protected page)
-        setPage("landing");
-      }
-      setReady(true);
-    });
-
-    // Listen for sign-in / sign-out events (including OAuth redirect callback)
+    // Single source of truth — no getSession() to avoid race conditions.
+    // onAuthStateChange fires INITIAL_SESSION synchronously on mount.
     const { data: { subscription } } = sb.auth.onAuthStateChange((event, session) => {
-      if (session) {
+      if (event === "INITIAL_SESSION") {
+        // Startup: restore last page for logged-in users, landing for guests
+        if (session) {
+          setUser(session.user);
+          const last = localStorage.getItem("wd-page");
+          setPage(last && ["chat", "profile"].includes(last) ? last : "chat");
+        } else {
+          setPage("landing");
+        }
+        setReady(true);
+      } else if (event === "SIGNED_IN") {
+        // Fresh OAuth login — show landing so user sees their name in nav
         setUser(session.user);
-        // After OAuth redirect land on home so user sees the authenticated nav
-        if (event === "SIGNED_IN") setPage("landing");
-      } else {
+        setPage("landing");
+      } else if (event === "SIGNED_OUT") {
         setUser(null);
         setPage("landing");
+      }
+      // TOKEN_REFRESHED: silently update user, no page change
+      if (event === "TOKEN_REFRESHED" && session) {
+        setUser(session.user);
       }
     });
 
@@ -44,7 +45,10 @@ function App() {
   }, []);
 
   React.useEffect(() => {
-    if (ready) localStorage.setItem("wd-page", page);
+    // Only persist pages that make sense to restore on next visit
+    if (ready && ["chat", "profile"].includes(page)) {
+      localStorage.setItem("wd-page", page);
+    }
     window.scrollTo(0, 0);
   }, [page, ready]);
 

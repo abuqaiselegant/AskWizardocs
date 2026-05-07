@@ -2,7 +2,7 @@
 
 const DOC_SOURCES = [
   { id: "langchain",   label: "LangChain",   dot: "#2ca190", n: 3235, live: true  },
-  { id: "huggingface", label: "HuggingFace", dot: "#ff9d00", n: 0,    live: false },
+  { id: "huggingface", label: "HuggingFace", dot: "#ff9d00", n: 185,  live: true  },
   { id: "chromadb",    label: "ChromaDB",    dot: "#8b5cf6", n: 0,    live: false },
 ];
 

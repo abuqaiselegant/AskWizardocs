@@ -218,7 +218,10 @@ def main():
         print(f"  Embedded {stored}/{len(new_chunks)}...")
 
     # ── 6. Append to chunks.jsonl ──────────────────────────────────────────────
+    raw = CHUNKS_FILE.read_bytes() if CHUNKS_FILE.exists() else b""
     with CHUNKS_FILE.open("a", encoding="utf-8") as f:
+        if raw and not raw.endswith(b"\n"):
+            f.write("\n")
         for c in new_chunks:
             f.write(json.dumps(c, ensure_ascii=False) + "\n")
 

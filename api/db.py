@@ -36,7 +36,8 @@ def _url(table):
 
 def get_or_create_workspace(user_id: str) -> str | None:
     r = requests.get(_url("workspaces"), headers=_h(),
-                     params={"owner_id": f"eq.{user_id}", "select": "id", "limit": "1"})
+                     params={"owner_id": f"eq.{user_id}", "select": "id",
+                             "order": "created_at.asc", "limit": "1"})
     rows = r.json() if r.ok else []
     if rows:
         return rows[0]["id"]
@@ -88,7 +89,8 @@ def create_chat(user_id: str, title: str) -> str | None:
 
 def get_chats(user_id: str) -> list:
     r = requests.get(_url("workspaces"), headers=_h(),
-                     params={"owner_id": f"eq.{user_id}", "select": "id", "limit": "1"})
+                     params={"owner_id": f"eq.{user_id}", "select": "id",
+                             "order": "created_at.asc", "limit": "1"})
     rows = r.json() if r.ok else []
     if not rows:
         return []
@@ -104,7 +106,7 @@ def get_chats(user_id: str) -> list:
 
 def save_messages(chat_id: str, user_content: str, assistant_content: str, sources: list):
     rows = [
-        {"chat_id": chat_id, "role": "user",      "content": user_content},
+        {"chat_id": chat_id, "role": "user",      "content": user_content,      "sources_json": None},
         {"chat_id": chat_id, "role": "assistant",  "content": assistant_content, "sources_json": sources},
     ]
     requests.post(_url("messages"), headers=_h(Prefer="return=minimal"), json=rows)

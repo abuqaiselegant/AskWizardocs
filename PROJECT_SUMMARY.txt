@@ -1,6 +1,6 @@
 ================================================================================
 WIZARDOCS — COMPLETE PROJECT SUMMARY
-Last updated: 2026-05-08 (second audit)
+Last updated: 2026-05-08
 ================================================================================
 
 ────────────────────────────────────────────────────────────────────────────────
@@ -52,8 +52,8 @@ BACKEND (Python / FastAPI)
     hybrid_retriever.py       — RRF fusion of BM25 + vector, then reranks
     reranker.py               — Cohere cross-encoder reranker (top 20 -> top 5)
   src/generation/
-    generator.py              — Full pipeline: retrieve -> format -> LLM -> parse
-    llm.py                    — GPT-4o-mini call, accepts conversation history
+    generator.py              — Full pipeline: retrieve → rerank → generate → confidence + followups
+    llm.py                    — GPT-4o-mini: answer generation + followup suggestions
     prompt.py                 — System prompt: citation-only, strict grounding
     formatter.py              — Formats chunks into numbered context blocks
     parser.py                 — Extracts cited sources from answer text
@@ -107,7 +107,8 @@ REAL (fully working):
   OK  Evaluation pipeline (Ragas faithfulness scoring)
   OK  Chat page: sends questions, displays streamed answers, citation pills
   OK  Citation popups on hover, source cards below each answer
-  OK  Confidence meter (proxy: citation count-based)
+  OK  Confidence meter (Cohere reranker top score, 0-1 scale — real signal)
+  OK  Context-aware followups — GPT-4o-mini generates 3 specific questions per answer
   OK  Dark/light theme toggle (persisted in localStorage)
   OK  Markdown rendering with marked.js
   OK  Chat history sidebar — real DB data, last 10 chats, newest first
@@ -139,8 +140,6 @@ FAKE / NOT YET IMPLEMENTED:
   NO  Bring-your-own-docs (BYOD) — no upload endpoint, no multi-tenant retrieval
   NO  Chunk quota enforcement — chunk_usage tracked but never checked on upload
   NO  GitHub OAuth — deferred
-  NO  Suggested followups — hardcoded 3 strings, not context-aware
-  NO  Real confidence score — proxy only (citation count), not reranker score
   NO  Multi-doc answering — single shared LangChain index only
 
 ────────────────────────────────────────────────────────────────────────────────
@@ -203,18 +202,10 @@ LATER — Polish and growth:
       - "Export" button in chat header → download as Markdown
       - Pro only gate
 
-  [7] Context-aware suggested followups
-      - After each answer, generate 2-3 followup suggestions using the answer
-      - Replace hardcoded 3 strings in SuggestedFollowups component
-
-  [8] Real confidence score
-      - Use Cohere reranker top score (0-1) instead of citation count proxy
-      - Low effort, meaningfully improves UX signal
-
-  [9] GitHub OAuth
+  [7] GitHub OAuth
       - Was deferred — add back when Stripe is live (reduces friction at signup)
 
-  [10] Multi-doc answering
+  [8] Multi-doc answering
        - Allow users to select multiple doc sources in chat source bar
        - Search all selected collections, merge and rerank
        - Pro only
@@ -268,24 +259,7 @@ DECISION: Cap rule — messages only for last 2 chats
   Pro feature: messages for all 10 chats.
 
 ────────────────────────────────────────────────────────────────────────────────
-7. AUTH FLOW (as implemented)
-────────────────────────────────────────────────────────────────────────────────
-
-  1. User clicks "Sign in with Google" → supabase.auth.signInWithOAuth()
-  2. Redirected to Google → back to app with ?code= in URL
-  3. Supabase exchanges code → issues ES256 JWT, stores session in localStorage
-  4. app.jsx: onAuthStateChange("SIGNED_IN") fires
-     → if already on chat/profile: stay there (tab-refocus safe)
-     → otherwise: navigate to "landing" (shows auth'd nav)
-  5. INITIAL_SESSION fires on every mount
-     → if session: restore last page (wd-page in localStorage)
-     → if no session: landing page
-  6. All /api/* calls send: Authorization: Bearer <supabase_access_token>
-  7. FastAPI auth.py: PyJWKClient fetches public key from JWKS endpoint,
-     decodes ES256 JWT, extracts sub (user_id)
-
-────────────────────────────────────────────────────────────────────────────────
-8. DATABASE SCHEMA (as deployed)
+7. DATABASE SCHEMA (as deployed)
 ────────────────────────────────────────────────────────────────────────────────
 
   users_profile   (id uuid PK refs auth.users, name text, plan text default 'free',
@@ -305,7 +279,7 @@ DECISION: Cap rule — messages only for last 2 chats
     - Chats at position 10+: the whole chat is deleted (CASCADE removes messages)
 
 ────────────────────────────────────────────────────────────────────────────────
-9. EVALUATION PIPELINE
+8. EVALUATION PIPELINE
 ────────────────────────────────────────────────────────────────────────────────
 
   src/evaluation/golden_qa.jsonl    — 10 hand-labeled Q&A pairs
@@ -314,20 +288,103 @@ DECISION: Cap rule — messages only for last 2 chats
   src/evaluation/ci_gate.py         — fails if faithfulness < 0.7
   src/evaluation/results.json       — latest scores
 
-  Confidence meter in chat is a proxy (citation count based), not Ragas score.
-  To improve: use Cohere reranker top score as confidence signal.
+  Confidence meter in chat uses the Cohere reranker top score (0-1).
+  Ragas eval scores faithfulness independently — separate signal.
 
 ────────────────────────────────────────────────────────────────────────────────
-10. OPEN QUESTIONS
+9. ARCHITECTURE & REQUEST FLOW
+────────────────────────────────────────────────────────────────────────────────
+
+OFFLINE — One-time ingestion (scripts/ folder, already done)
+  1. Scrape    scripts/ download LangChain HTML pages
+  2. Parse     HTML → clean text (trafilatura / BeautifulSoup)
+  3. Chunk     Semantic chunking, heading-aware, deduped → chunks.jsonl (3,235 chunks)
+  4. Embed     OpenAI text-embedding-3-small in batches → stored in ChromaDB (chroma_db/)
+  5. BM25      BM25Okapi index built in-memory from chunks.jsonl on every server startup
+
+─────────────────────────────────────────────────────────────────
+
+ONLINE — Every POST /ask request
+
+  Browser (React)
+    │
+    │  POST /ask  { question, chat_id, history[last 6 messages] }
+    │  Authorization: Bearer <Supabase ES256 JWT>
+    ▼
+  FastAPI  api/main.py
+    │
+    ├── auth.py
+    │     PyJWKClient fetches public key from Supabase JWKS endpoint
+    │     Verifies ES256 JWT signature → extracts user_id (sub claim)
+    │     Returns 401 if token missing, expired, or invalid
+    │
+    └── generator.ask(question, history)
+          │
+          ├─ [1] RETRIEVAL QUERY ENRICHMENT
+          │       If history exists → prepend last user turn to current question
+          │       Reason: "explain more" alone has no keywords; enrichment
+          │       keeps the retriever anchored to the right topic
+          │
+          ├─ [2] HYBRID RETRIEVAL  (hybrid_retriever.py)
+          │   ├─ BM25 search     → tokenize query → score all 3,235 chunks
+          │   │                    → top 20 keyword matches
+          │   ├─ Vector search   → embed query (text-embedding-3-small)
+          │   │                    → ChromaDB cosine similarity → top 20
+          │   └─ RRF fusion      → score(chunk) = Σ 1 / (60 + rank_i)
+          │                         scale-independent; chunk in both lists
+          │                         scores higher → merged top 20 candidates
+          │
+          ├─ [3] RERANK  (reranker.py)
+          │       Cohere rerank-english-v3.0 cross-encoder
+          │       Reads (query, chunk_text) pairs together → relevance score
+          │       Top 20 → top 5 chunks, each with rerank_score (0-1)
+          │
+          ├─ [4] GENERATE  (generator.py + llm.py)
+          │   ├─ formatter.py   "[1] chunk_text [2] chunk_text ..."
+          │   ├─ GPT-4o-mini
+          │   │     system: cite every claim with [N], strict grounding (prompt.py)
+          │   │     messages: conversation history + formatted context + question
+          │   ├─ parser.py      extract [N] refs → map to {title, url} metadata
+          │   └─ confidence     = chunks[0].rerank_score  (top Cohere score, 0-1)
+          │
+          └─ [5] FOLLOWUPS  (llm.py)
+                  GPT-4o-mini: question + answer[:400] → 3 context-specific questions
+                  max_tokens=150, temp=0.7; fails safe to [] on any error
+
+    Response: { answer, sources[{number, title, url}], confidence, followups }
+
+  SIDE EFFECTS (fire-and-forget after response is ready)
+    ├─ db.save_messages()         saves user + assistant turns to Supabase messages
+    └─ db.increment_query_count() upserts query_usage (user_id, period_start, count++)
+
+    ▼
+  Browser (React)  ←  { answer, sources, confidence, followups }
+    ├─ Animates answer text character-by-character (simulated streaming)
+    ├─ Renders [N] citation pills inline — hover preview, click opens source URL
+    ├─ Source cards below answer (title, URL, Cohere match score)
+    ├─ Confidence meter reads data.confidence (Cohere reranker score 0-1)
+    └─ Followup pills above compose — click to pre-fill textarea
+
+─────────────────────────────────────────────────────────────────
+
+AUTH FLOW (separate from /ask)
+
+  1. User clicks "Sign in with Google" → supabase.auth.signInWithOAuth()
+  2. Redirect to Google → back to app with ?code= in URL
+  3. Supabase exchanges code → issues ES256 JWT, stores in localStorage
+  4. app.jsx onAuthStateChange("SIGNED_IN") fires
+       → if already on chat/profile: stay (tab-refocus safe)
+       → otherwise: go to landing (shows authed nav)
+  5. INITIAL_SESSION fires on mount → restore last page or go to landing
+  6. All API calls attach: Authorization: Bearer <access_token>
+
+────────────────────────────────────────────────────────────────────────────────
+11. OPEN QUESTIONS
 ────────────────────────────────────────────────────────────────────────────────
 
 Q: Shared LangChain index + user's own docs — how to merge?
    Recommendation: always include shared index as baseline, layer user docs
    on top. Pro users get both searched and merged/reranked together.
-
-Q: Confidence meter — switch to reranker score?
-   Cohere top reranker score (0-1) is a better signal. Low effort change.
-   Current proxy: >= 4 sources = 0.88, >= 2 = 0.78, else = 0.62.
 
 Q: Workspace model — one per user or team workspaces?
    Current: one workspace per user (auto-created on signup).

@@ -348,7 +348,7 @@ function BookShelf({ intensity = "full" }) {
         }
 
         /* Bookworm wiggles across */
-        .worm { animation: wormMove 8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+        .worm { animation: wormMove 8s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: center; }
         @keyframes wormMove {
           0%   { transform: translateX(0) translateY(0); }
           25%  { transform: translateX(40px) translateY(-2px); }

@@ -280,7 +280,7 @@ function Landing({ go, theme, toggleTheme, user }) {
       <section className="section cta">
         <div className="cta-card">
           <div className="cta-bg"/>
-          <h2 className="h2" style={{marginBottom: 10}}>Your library. Finally answering back.</h2>
+          <h2 className="h2" style={{marginBottom: 10, marginInline: "auto"}}>Your library. Finally answering back.</h2>
           <p className="muted" style={{maxWidth: 520, marginInline:"auto"}}>
             Start free — no credit card. 100 queries a month, LangChain docs included. Your first answer in under a minute.
           </p>

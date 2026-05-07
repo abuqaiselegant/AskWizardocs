@@ -112,6 +112,37 @@ def save_messages(chat_id: str, user_content: str, assistant_content: str, sourc
     requests.post(_url("messages"), headers=_h(Prefer="return=minimal"), json=rows)
 
 
+def _current_period() -> str:
+    from datetime import date
+    today = date.today()
+    return today.replace(day=1).isoformat()
+
+
+def get_queries_used(user_id: str) -> int:
+    r = requests.get(_url("query_usage"), headers=_h(),
+                     params={"user_id": f"eq.{user_id}",
+                             "period_start": f"eq.{_current_period()}",
+                             "select": "count"})
+    return r.json()[0]["count"] if r.ok and r.json() else 0
+
+
+def increment_query_count(user_id: str):
+    period = _current_period()
+    r = requests.get(_url("query_usage"), headers=_h(),
+                     params={"user_id": f"eq.{user_id}",
+                             "period_start": f"eq.{period}",
+                             "select": "count"})
+    if r.ok and r.json():
+        current = r.json()[0]["count"]
+        requests.patch(_url("query_usage"), headers=_h(Prefer="return=minimal"),
+                       params={"user_id": f"eq.{user_id}",
+                               "period_start": f"eq.{period}"},
+                       json={"count": current + 1})
+    else:
+        requests.post(_url("query_usage"), headers=_h(Prefer="return=minimal"),
+                      json={"user_id": user_id, "count": 1, "period_start": period})
+
+
 def get_profile(user_id: str) -> dict:
     r = requests.get(_url("users_profile"), headers=_h(),
                      params={"id": f"eq.{user_id}", "select": "name,plan"})
@@ -127,7 +158,8 @@ def get_profile(user_id: str) -> dict:
                           params={"workspace_id": f"eq.{ws}", "select": "chunks_indexed"})
         chunks = r3.json()[0]["chunks_indexed"] if r3.ok and r3.json() else 0
 
-    return {**profile, "chunks_indexed": chunks}
+    queries_used = get_queries_used(user_id)
+    return {**profile, "chunks_indexed": chunks, "queries_used": queries_used}
 
 
 def clear_chats(user_id: str):

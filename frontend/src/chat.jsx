@@ -25,7 +25,12 @@ function Chat({ go, theme, toggleTheme, user }) {
   const [hoveredCite, setHoveredCite] = React.useState(null);
   const [error, setError]           = React.useState(null);
   const [proToast, setProToast]     = React.useState(null);
+  const [queriesUsed, setQueriesUsed] = React.useState(0);
+  const [plan, setPlan]             = React.useState("free");
   const scrollRef = React.useRef(null);
+
+  const QUERY_LIMIT = 100;
+  const isLimited = plan === "free" && queriesUsed >= QUERY_LIMIT;
 
   const showProToast = (msg) => {
     setProToast(msg);
@@ -59,13 +64,21 @@ function Chat({ go, theme, toggleTheme, user }) {
     })));
   };
 
-  // Load sidebar on mount; open wd-open-chat if set (from profile page), else most recent
+  // Load sidebar + profile on mount; open wd-open-chat if set, else most recent
   React.useEffect(() => {
     (async () => {
       const h = await authHdr();
-      const res = await fetch(`${window.API_BASE}/chats`, { headers: h });
-      if (!res.ok) return;
-      const chats = await res.json();
+      const [chatsRes, profileRes] = await Promise.all([
+        fetch(`${window.API_BASE}/chats`,   { headers: h }),
+        fetch(`${window.API_BASE}/profile`, { headers: h }),
+      ]);
+      if (profileRes.ok) {
+        const p = await profileRes.json();
+        setQueriesUsed(p.queries_used || 0);
+        setPlan(p.plan || "free");
+      }
+      if (!chatsRes.ok) return;
+      const chats = await chatsRes.json();
       setHistory(chats);
 
       const openId = localStorage.getItem("wd-open-chat");
@@ -93,7 +106,7 @@ function Chat({ go, theme, toggleTheme, user }) {
   }, [messages]);
 
   const send = async () => {
-    if (!input.trim() || streaming) return;
+    if (!input.trim() || streaming || isLimited) return;
     const q = input.trim();
     setInput("");
     setError(null);
@@ -179,6 +192,7 @@ function Chat({ go, theme, toggleTheme, user }) {
               ? { ...m, text: reply, streamed: false, sources: sourceIds, confidence }
               : m
           ));
+          setQueriesUsed(q => q + 1);
           setStreaming(false);
         }
       }, 18);
@@ -307,7 +321,7 @@ function Chat({ go, theme, toggleTheme, user }) {
             ))}
           </div>
           <div style={{ flex: 1 }} />
-          <span className="mono doc-srcbar-soon">GPT-4o-mini · text-embedding-3-small · Cohere rerank</span>
+          <QueryCounter used={queriesUsed} limit={QUERY_LIMIT} plan={plan}/>
         </div>
 
         {error && (
@@ -359,6 +373,22 @@ function Chat({ go, theme, toggleTheme, user }) {
           </div>
         )}
 
+        {isLimited ? (
+          <div className="limit-wall">
+            <div className="limit-wall-inner">
+              <div className="limit-icon">🔒</div>
+              <div>
+                <div className="limit-title">Monthly limit reached</div>
+                <div className="muted" style={{marginTop:4}}>
+                  You've used all {QUERY_LIMIT} free queries this month. Upgrade to Pro for unlimited queries, saved answers, and your own docs.
+                </div>
+              </div>
+              <button className="btn primary" style={{flexShrink:0}} onClick={() => go("landing")}>
+                Upgrade to Pro →
+              </button>
+            </div>
+          </div>
+        ) : (
         <div className="chat-compose">
           <SuggestedFollowups streaming={streaming} onPick={(t) => setInput(t)} />
           <div className="composer">
@@ -382,6 +412,8 @@ function Chat({ go, theme, toggleTheme, user }) {
             <span><span className="kbd">↵</span> send · <span className="kbd">⇧ ↵</span> newline</span>
           </div>
         </div>
+        )}
+
       </main>
 
       <style>{`
@@ -571,6 +603,24 @@ function Chat({ go, theme, toggleTheme, user }) {
         }
         .pro-toast-x:hover { color: var(--ink); background: var(--surface-3); }
         @keyframes slideUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+        .limit-wall {
+          flex-shrink: 0;
+          padding: 20px 32px;
+          border-top: 1px solid color-mix(in oklab, var(--accent) 25%, var(--line));
+          background: color-mix(in oklab, var(--accent) 5%, var(--bg));
+        }
+        .limit-wall-inner {
+          max-width: 760px; margin: 0 auto;
+          display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+        }
+        .limit-icon { font-size: 28px; flex-shrink: 0; }
+        .limit-title { font-weight: 600; font-size: 15px; color: var(--ink); }
+        .qc { display:inline-flex; align-items:center; gap: 8px; font-size: 11px; letter-spacing: 0.04em; }
+        .qc-bar {
+          width: 72px; height: 4px; border-radius: 2px;
+          background: var(--line-2); overflow: hidden;
+        }
+        .qc-fill { height: 100%; border-radius: 2px; transition: width .4s ease; }
         @media (max-width: 1100px) {
           .chat { grid-template-columns: 80px 1fr; }
           .chat-side .new-chat span:not(.kbd), .chat-side .side-search input,
@@ -1020,6 +1070,24 @@ function SidebarUser({ user, go }) {
         }
         .side-signout:hover { color: var(--danger); background: var(--surface); }
       `}</style>
+    </div>
+  );
+}
+
+function QueryCounter({ used, limit, plan }) {
+  if (plan !== "free") return null;
+  const pct = Math.min(used / limit, 1);
+  const remaining = Math.max(limit - used, 0);
+  const color = pct >= 1 ? "var(--danger)" : pct >= 0.8 ? "var(--warn)" : "var(--accent)";
+  return (
+    <div className="qc mono">
+      <div className="qc-bar">
+        <div className="qc-fill" style={{ width: `${pct * 100}%`, background: color }}/>
+      </div>
+      <span style={{ color }}>
+        {used} / {limit} queries
+        {remaining > 0 && remaining <= 20 && ` · ${remaining} left`}
+      </span>
     </div>
   );
 }

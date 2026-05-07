@@ -68,6 +68,10 @@ def ask_endpoint(request: AskRequest, user_id: str = Depends(get_current_user)):
             db.save_messages(request.chat_id, request.question, result["answer"], result["sources"])
         except Exception:
             pass
+    try:
+        db.increment_query_count(user_id)
+    except Exception:
+        pass
     return result
 
 

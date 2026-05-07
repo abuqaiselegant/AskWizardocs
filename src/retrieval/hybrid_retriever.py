@@ -66,34 +66,30 @@ def reciprocal_rank_fusion(
     return results
 
 
-def search(query: str, k: int = 10) -> list[dict]:
+def search(query: str, k: int = 10, source: str | None = None) -> list[dict]:
     """
     Hybrid search: BM25 + vector → RRF fusion → top-k results.
 
     Args:
-        query: natural language question
-        k:     number of final results to return
+        query:  natural language question
+        k:      number of final results to return
+        source: if given, restrict both retrievers to this source slug
     """
-    # fetch more candidates than needed — fusion needs room to rerank
-    bm25_results   = bm25_search(query,   k=20)
-    vector_results = vector_search(query, k=20)
+    bm25_results   = bm25_search(query,   k=20, source=source)
+    vector_results = vector_search(query, k=20, source=source)
 
-    # fuse
     fused = reciprocal_rank_fusion(bm25_results, vector_results)
-
     return fused[:k]
 
-def search_with_rerank(query: str) -> list[dict]:
+
+def search_with_rerank(query: str, source: str | None = None) -> list[dict]:
     """
     Full pipeline: hybrid retrieval → reranking.
-    This is the main entry point for Phase 4 (generation).
+    This is the main entry point for generation.
 
     Returns top 5 chunks, correctly ordered by true relevance.
     """
-    # get top 20 from hybrid
-    candidates = search(query, k=20)
-
-    # rerank to top 5
+    candidates = search(query, k=20, source=source)
     return rerank(query, candidates)
 
 

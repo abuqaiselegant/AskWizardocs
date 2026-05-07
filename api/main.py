@@ -40,6 +40,7 @@ class AskRequest(BaseModel):
     question: str
     chat_id:  str | None = None
     history:  list[Turn] = []
+    source:   str | None = None
 
 class CreateChatRequest(BaseModel):
     title: str
@@ -66,7 +67,7 @@ def ask_endpoint(request: AskRequest, user_id: str = Depends(get_current_user)):
     if db.check_quota(user_id):
         raise HTTPException(status_code=402, detail="Monthly query limit reached. Upgrade to Pro.")
     history = [{"role": t.role, "content": t.content} for t in request.history]
-    result = ask(request.question, history)
+    result = ask(request.question, history, source=request.source)
     if request.chat_id:
         try:
             db.save_messages(request.chat_id, request.question, result["answer"], result["sources"])

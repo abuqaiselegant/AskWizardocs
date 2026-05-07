@@ -1,7 +1,9 @@
 // Chat page — wired to the AskMyDocs backend at window.API_BASE
 
 const DOC_SOURCES = [
-  { id: "langchain", label: "LangChain", dot: "#2ca190", n: 3235 },
+  { id: "langchain",   label: "LangChain",   dot: "#2ca190", n: 3235, live: true  },
+  { id: "huggingface", label: "HuggingFace", dot: "#ff9d00", n: 0,    live: false },
+  { id: "chromadb",    label: "ChromaDB",    dot: "#8b5cf6", n: 0,    live: false },
 ];
 
 function fmtTime(iso) {
@@ -27,7 +29,8 @@ function Chat({ go, theme, toggleTheme, user }) {
   const [proToast, setProToast]     = React.useState(null);
   const [queriesUsed, setQueriesUsed] = React.useState(0);
   const [plan, setPlan]             = React.useState("free");
-  const [followups, setFollowups]   = React.useState([]);
+  const [followups, setFollowups]       = React.useState([]);
+  const [selectedSource, setSelectedSource] = React.useState(null);
   const scrollRef = React.useRef(null);
 
   const QUERY_LIMIT = 100;
@@ -147,7 +150,7 @@ function Chat({ go, theme, toggleTheme, user }) {
       const res = await fetch(`${window.API_BASE}/ask`, {
         method: "POST",
         headers: hdrs,
-        body: JSON.stringify({ question: q, chat_id: currentChatId, history: historyForContext }),
+        body: JSON.stringify({ question: q, chat_id: currentChatId, history: historyForContext, source: selectedSource }),
       });
 
       if (!res.ok) {
@@ -317,12 +320,32 @@ function Chat({ go, theme, toggleTheme, user }) {
         <div className="doc-srcbar">
           <span className="mono doc-srcbar-label">Answering from</span>
           <div className="doc-srcbar-chips">
+            <button
+              className={"docchip " + (selectedSource === null ? "on" : "")}
+              onClick={() => setSelectedSource(null)}
+              title="Search across all indexed sources"
+            >
+              <span>All sources</span>
+            </button>
             {DOC_SOURCES.map(s => (
-              <button key={s.id} className="docchip on" title={`${s.n.toLocaleString()} indexed chunks`}>
-                <span className="docchip-dot" style={{ background: s.dot }} />
-                <span>{s.label}</span>
-                <span className="mono docchip-n">{(s.n / 1000).toFixed(1)}k chunks</span>
-              </button>
+              s.live ? (
+                <button
+                  key={s.id}
+                  className={"docchip " + (selectedSource === s.id ? "on" : "")}
+                  onClick={() => setSelectedSource(prev => prev === s.id ? null : s.id)}
+                  title={`${s.n.toLocaleString()} indexed chunks — click to filter`}
+                >
+                  <span className="docchip-dot" style={{ background: s.dot }} />
+                  <span>{s.label}</span>
+                  <span className="mono docchip-n">{(s.n / 1000).toFixed(1)}k</span>
+                </button>
+              ) : (
+                <span key={s.id} className="docchip docchip-soon" title="Run scripts/ingest_source.py to index this source">
+                  <span className="docchip-dot" style={{ background: s.dot, opacity: 0.4 }} />
+                  <span>{s.label}</span>
+                  <span className="mono docchip-n" style={{ color: "var(--ink-4)" }}>soon</span>
+                </span>
+              )
             ))}
           </div>
           <div style={{ flex: 1 }} />
@@ -460,6 +483,7 @@ function Chat({ go, theme, toggleTheme, user }) {
           font-size: 12px; color: var(--ink-3);
         }
         .docchip.on { background: var(--surface-2); color: var(--ink); border-color: var(--line-2); }
+        .docchip-soon { cursor: default; opacity: 0.55; }
         .docchip-dot { width: 7px; height: 7px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
         .docchip-n { font-size: 10px; color: var(--ink-4); letter-spacing: 0.04em; }
 

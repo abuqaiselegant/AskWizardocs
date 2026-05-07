@@ -42,21 +42,23 @@ def embed_query(query: str) -> list[float]:
     return response.data[0].embedding
 
 
-def search(query: str, k: int = 10) -> list[dict]:
+def search(query: str, k: int = 10, source: str | None = None) -> list[dict]:
     """
     Search Chroma for chunks semantically similar to query.
     Returns top-k chunks as dicts with vector_score attached.
 
     Args:
-        query: natural language question
-        k:     number of results to return
+        query:  natural language question
+        k:      number of results to return
+        source: if given, only return chunks from this source slug
     """
     vector = embed_query(query)
 
     results = collection.query(
         query_embeddings=[vector],
         n_results=k,
-        include=["documents", "metadatas", "distances"]
+        include=["documents", "metadatas", "distances"],
+        where={"source": source} if source else None,
     )
 
     # Chroma returns distance (lower = more similar)

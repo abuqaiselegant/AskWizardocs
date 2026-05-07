@@ -17,7 +17,7 @@ def generate(query: str, chunks: list[dict], history: list[dict] | None = None) 
     return {"answer": answer, "sources": sources, "confidence": confidence}
 
 
-def ask(query: str, history: list[dict] | None = None) -> dict:
+def ask(query: str, history: list[dict] | None = None, source: str | None = None) -> dict:
     # For follow-up questions ("give in description", "summarise", etc.) the bare
     # query has no retrievable keywords. Prepend the last user turn so the
     # retriever searches in the right topic area.
@@ -27,7 +27,7 @@ def ask(query: str, history: list[dict] | None = None) -> dict:
         if last_user:
             retrieval_query = f"{last_user} {query}"
 
-    chunks = search_with_rerank(retrieval_query)
+    chunks = search_with_rerank(retrieval_query, source=source)
     result = generate(query, chunks, history)
     result["followups"] = generate_followups(query, result["answer"])
     return result

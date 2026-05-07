@@ -30,34 +30,30 @@ def build_bm25_index(chunks: list[dict]) -> BM25Okapi:
     return BM25Okapi(tokenized)
 
 
-def search(query: str, k: int = 10) -> list[dict]:
+def search(query: str, k: int = 10, source: str | None = None) -> list[dict]:
     """
     Search chunks by keyword overlap with query.
     Returns top-k chunks as dicts (same format as chunks.jsonl).
 
     Args:
-        query: natural language question
-        k:     number of results to return
+        query:  natural language question
+        k:      number of results to return
+        source: if given, only return chunks from this source slug
     """
-    # tokenize the query the same way as the chunks
     tokenized_query = tokenize(query)
-
-    # get BM25 scores for all chunks
     scores = bm25_index.get_scores(tokenized_query)
 
-    # get indices of top-k scores (sorted highest first)
-    top_indices = sorted(
-        range(len(scores)),
-        key=lambda i: scores[i],
-        reverse=True
-    )[:k]
+    sorted_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
 
-    # return the actual chunk dicts with scores attached
     results = []
-    for idx in top_indices:
+    for idx in sorted_indices:
+        if source and chunks[idx].get("source") != source:
+            continue
         chunk = chunks[idx].copy()
         chunk["bm25_score"] = round(float(scores[idx]), 4)
         results.append(chunk)
+        if len(results) >= k:
+            break
 
     return results
 

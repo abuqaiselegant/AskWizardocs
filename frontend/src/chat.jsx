@@ -192,7 +192,7 @@ function Chat({ go, theme, toggleTheme, user }) {
               ? { ...m, text: reply, streamed: false, sources: sourceIds, confidence }
               : m
           ));
-          setQueriesUsed(q => q + 1);
+          setQueriesUsed(prev => prev + 1);
           setStreaming(false);
         }
       }, 18);
@@ -446,7 +446,6 @@ function Chat({ go, theme, toggleTheme, user }) {
         }
         .doc-srcbar-label { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-4); flex-shrink: 0; }
         .doc-srcbar-chips { display: inline-flex; gap: 6px; }
-        .doc-srcbar-soon { font-size: 10.5px; color: var(--ink-4); letter-spacing: 0.04em; flex-shrink: 0; }
         .docchip {
           display: inline-flex; align-items: center; gap: 7px;
           padding: 6px 10px;

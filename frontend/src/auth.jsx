@@ -78,7 +78,7 @@ function OAuthPanel({ go }) {
   return (
     <div>
       <div className="chip" style={{marginBottom: 14}}>
-        <span className="dot"/> 5,000 free chunks · no card
+        <span className="dot"/> 100 queries / month · no card
       </div>
 
       <h1 className="auth-h1">

@@ -1,5 +1,4 @@
 // Profile page — real data wired to /profile and /chats endpoints
-const ConfidenceMeter = window.ConfidenceMeter;
 
 const _authHdr = async () => {
   const { data: { session } } = await window._supabase.auth.getSession();

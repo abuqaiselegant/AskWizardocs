@@ -1,6 +1,6 @@
 ================================================================================
 WIZARDOCS — COMPLETE PROJECT SUMMARY
-Last updated: 2026-05-07
+Last updated: 2026-05-08
 ================================================================================
 
 ────────────────────────────────────────────────────────────────────────────────
@@ -115,7 +115,7 @@ REAL (fully working):
   OK  New conversation — creates chat lazily on first send
   OK  Load old conversation — messages fetched from DB for top 2 chats
   OK  GET /chats, POST /chats, GET /chats/{id}/messages — all wired
-  OK  GET /profile — returns real name, plan, chunks_indexed
+  OK  GET /profile — returns real name, plan, chunks_indexed, queries_used
   OK  DELETE /chats — clears all chat history for user
   OK  Profile page — real name/email/joined from session, real chats, real plan
   OK  Profile history tab — real chats grouped by date, click opens in chat
@@ -123,10 +123,14 @@ REAL (fully working):
   OK  Auth-aware landing page — CTA changes for logged-in users
   OK  Auth-aware nav — avatar + "Go Pro" when logged in
   OK  Tab-refocus bug fixed — SIGNED_IN no longer navigates away from chat
+  OK  Query tracking — query_usage table, per-user per-month, incremented on /ask
+  OK  Query counter in chat — progress bar in source bar, turns red at 100
+  OK  Query limit wall — compose area replaced with upgrade prompt at 100 queries
+  OK  Pro gate toasts — Save and Upload buttons notify free users to upgrade
 
 FAKE / NOT YET IMPLEMENTED:
   NO  Bookmarks/saved answers — empty state shown, no backend, pro feature
-  NO  Query count limiting (100/month free tier) — not tracked in DB
+  NO  Backend query quota enforcement — UI blocks at 100 but /ask doesn't reject 402
   NO  Plan enforcement — users can't upgrade, plan is always "free"
   NO  Stripe / payments — no payment flow exists
   NO  Export conversations — UI button exists in designs, not wired
@@ -166,11 +170,11 @@ NEXT UP — Core product gaps:
       - UI: upgrade page / modal from landing pricing CTA
       - Required before any pro feature gating is meaningful
 
-  [2] Query quota enforcement (Phase 4)
-      - Track queries_used per user per month in query_usage table
-      - /ask: check count, reject with 402 if free user > 100/month
-      - Show usage in profile stats and chat footer
-      - Gated by: need user plan to be real (depends on Stripe)
+  [2] Backend query quota enforcement
+      - query_usage table tracking IS done (per-user, per-month)
+      - Remaining: /ask should check count before running RAG, reject 402 if free user > 100
+      - UI-only gate exists (compose blocked at 100) but server doesn't enforce it yet
+      - Low effort: add one check at top of ask_endpoint using db.get_queries_used()
 
   [3] Bookmarks / saved answers (Pro feature 1)
       - Backend: add bookmarked bool + bookmark_note to messages table

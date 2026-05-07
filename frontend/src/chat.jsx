@@ -895,7 +895,7 @@ function SourceCards({ ids, all, hovered, onHover }) {
       </div>
       <div className="srccards-grid">
         {cards.map(s => (
-          <a key={s.id} href={`https://${s.url}`} target="_blank" rel="noreferrer"
+          <a key={s.id} href={s.url.startsWith("http") ? s.url : `https://${s.url}`} target="_blank" rel="noreferrer"
             className={"srccard " + (hovered === s.id ? "on" : "")}
             onMouseEnter={() => onHover(s.id)} onMouseLeave={() => onHover(null)}>
             <div className="srccard-top">

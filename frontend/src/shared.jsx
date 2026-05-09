@@ -273,14 +273,14 @@ function BookShelf({ intensity = "full" }) {
             <path d="M 315 98 Q 325 104 337 98" stroke="#0a0a0f" strokeWidth="2" fill="none" strokeLinecap="round"/>
           </g>
 
-          {/* Trailing worm — amber, slightly behind the main one */}
-          <g className="worm worm-trail">
-            <circle cx="65" cy="324" r="4.5" fill="#f5b57c" stroke="#0a0a0f" strokeWidth="2"/>
-            <circle cx="75" cy="322" r="5.5" fill="#f5b57c" stroke="#0a0a0f" strokeWidth="2"/>
-            <circle cx="86" cy="324" r="4.5" fill="#f5b57c" stroke="#0a0a0f" strokeWidth="2"/>
-            <circle cx="73" cy="320" r="0.7" fill="#0a0a0f"/>
-            <circle cx="77" cy="320" r="0.7" fill="#0a0a0f"/>
-            <path d="M 81 318 L 83 315 M 85 318 L 88 315" stroke="#0a0a0f" strokeWidth="1.2" strokeLinecap="round"/>
+          {/* Trailing worm — amber, smaller, wobblier */}
+          <g className="worm-trail">
+            <circle cx="66" cy="325" r="3"   fill="#f5b57c" stroke="#0a0a0f" strokeWidth="1.5"/>
+            <circle cx="74" cy="323" r="3.8" fill="#f5b57c" stroke="#0a0a0f" strokeWidth="1.5"/>
+            <circle cx="83" cy="325" r="3"   fill="#f5b57c" stroke="#0a0a0f" strokeWidth="1.5"/>
+            <circle cx="72" cy="321" r="0.5" fill="#0a0a0f"/>
+            <circle cx="76" cy="321" r="0.5" fill="#0a0a0f"/>
+            <path d="M 79 319 L 81 316 M 83 319 L 85 317" stroke="#0a0a0f" strokeWidth="1" strokeLinecap="round"/>
           </g>
 
           {/* Tiny bouncing bookworm — green, leads */}
@@ -359,13 +359,24 @@ function BookShelf({ intensity = "full" }) {
 
         /* Bookworm wiggles across */
         .worm { animation: wormMove 14s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: center; }
-        .worm-trail { opacity: 0.75; }
         @keyframes wormMove {
           0%   { transform: translateX(0) translateY(0); }
           25%  { transform: translateX(40px) translateY(-2px); }
           50%  { transform: translateX(90px) translateY(0); }
           75%  { transform: translateX(150px) translateY(-2px); }
           100% { transform: translateX(220px) translateY(0); }
+        }
+
+        /* Trailing worm — slower, bouncier path */
+        .worm-trail { animation: wormMove2 20s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: center; opacity: 0.8; }
+        @keyframes wormMove2 {
+          0%   { transform: translateX(0)    translateY(0); }
+          15%  { transform: translateX(20px) translateY(-4px); }
+          30%  { transform: translateX(50px) translateY(1px); }
+          50%  { transform: translateX(85px) translateY(-5px); }
+          65%  { transform: translateX(125px) translateY(2px); }
+          80%  { transform: translateX(170px) translateY(-3px); }
+          100% { transform: translateX(210px) translateY(1px); }
         }
 
         /* Twinkles pulse */

@@ -367,16 +367,19 @@ function BookShelf({ intensity = "full" }) {
           100% { transform: translateX(220px) translateY(0); }
         }
 
-        /* Trailing worm — slower, bouncier path */
-        .worm-trail { animation: wormMove2 20s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: center; opacity: 0.8; }
+        /* Trailing worm — slower, inchworm crawl: lunge then pause */
+        .worm-trail { animation: wormMove2 22s linear infinite alternate; transform-box: fill-box; transform-origin: center; opacity: 0.8; }
         @keyframes wormMove2 {
-          0%   { transform: translateX(0)    translateY(0); }
-          15%  { transform: translateX(20px) translateY(-4px); }
-          30%  { transform: translateX(50px) translateY(1px); }
-          50%  { transform: translateX(85px) translateY(-5px); }
-          65%  { transform: translateX(125px) translateY(2px); }
-          80%  { transform: translateX(170px) translateY(-3px); }
-          100% { transform: translateX(210px) translateY(1px); }
+          0%   { transform: translateX(0px)   translateY(0); }
+          8%   { transform: translateX(35px)  translateY(-1px); }
+          18%  { transform: translateX(38px)  translateY(0); }
+          28%  { transform: translateX(80px)  translateY(-1px); }
+          38%  { transform: translateX(83px)  translateY(0); }
+          50%  { transform: translateX(120px) translateY(-1px); }
+          58%  { transform: translateX(123px) translateY(0); }
+          70%  { transform: translateX(165px) translateY(-1px); }
+          80%  { transform: translateX(168px) translateY(0); }
+          100% { transform: translateX(210px) translateY(0); }
         }
 
         /* Twinkles pulse */

@@ -3,7 +3,7 @@
 const DOC_SOURCES = [
   { id: "langchain",   label: "LangChain",   dot: "#2ca190", n: 3235, live: true  },
   { id: "huggingface", label: "HuggingFace", dot: "#ff9d00", n: 9560, live: true  },
-  { id: "chromadb",    label: "ChromaDB",    dot: "#8b5cf6", n: 0,    live: false },
+  { id: "chromadb",    label: "ChromaDB",    dot: "#8b5cf6", n: 485,  live: true  },
 ];
 
 function fmtTime(iso) {
@@ -272,12 +272,12 @@ function Chat({ go, theme, toggleTheme, user }) {
           <div className="side-group-head mono">Library</div>
           <div className="lib-stat">
             <div>
-              <div className="lib-n">12,795</div>
+              <div className="lib-n">13,280</div>
               <div className="lib-l mono">indexed chunks</div>
             </div>
             <div>
               <div className="lib-n" style={{ color: "var(--good)" }}>●</div>
-              <div className="lib-l mono">2 sources live</div>
+              <div className="lib-l mono">3 sources live</div>
             </div>
           </div>
         </div>
@@ -436,7 +436,7 @@ function Chat({ go, theme, toggleTheme, user }) {
             </button>
           </div>
           <div className="compose-foot mono">
-            <span><I.Shield size={11} /> Grounded in 12,795 chunks — LangChain & HuggingFace docs</span>
+            <span><I.Shield size={11} /> Grounded in 13,280 chunks — LangChain, HuggingFace & ChromaDB docs</span>
             <span><span className="kbd">↵</span> send · <span className="kbd">⇧ ↵</span> newline</span>
           </div>
         </div>

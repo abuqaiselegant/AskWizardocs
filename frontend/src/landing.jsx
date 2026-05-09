@@ -572,9 +572,8 @@ function Footer({ go = () => {} }) {
       { label: "Evals",      action: () => go("chat") },
     ],
     Company: [
-      { label: "About",      action: () => { go("landing"); window.scrollTo({top:0, behavior:"smooth"}); } },
-      { label: "Manifesto",  action: () => go("manifesto") },
-      { label: "Contact",    action: () => go("contact") },
+      { label: "About",     action: () => go("manifesto") },
+      { label: "Contact",   action: () => go("contact") },
     ],
   };
 

@@ -293,7 +293,7 @@ function Chat({ go, theme, toggleTheme, user }) {
               Wizardocs · hybrid BM25 + vector · cross-encoder rerank
             </div>
             <h1 className="chat-title">
-              {messages.find(m => m.role === "user")?.text.slice(0, 72) || "LangChain Q&A"}
+              {messages.find(m => m.role === "user")?.text.slice(0, 72) || "ML Docs Q&A"}
               {(messages.find(m => m.role === "user")?.text.length || 0) > 72 ? "…" : ""}
             </h1>
           </div>
@@ -363,7 +363,7 @@ function Chat({ go, theme, toggleTheme, user }) {
             {messages.length === 0 && (
               <div className="empty-state">
                 <I.Logo size={48} style={{ color: "var(--accent)", opacity: 0.4 }} />
-                <p className="mono" style={{ color: "var(--ink-3)", marginTop: 16 }}>Ask anything about LangChain & HuggingFace</p>
+                <p className="mono" style={{ color: "var(--ink-3)", marginTop: 16 }}>Ask anything about LangChain, HuggingFace & ChromaDB</p>
               </div>
             )}
             {messages.map((m, i) => m.role === "user" ? (
@@ -422,7 +422,7 @@ function Chat({ go, theme, toggleTheme, user }) {
           <div className="composer">
             <button className="comp-btn" title="Upload your own docs (Pro)" onClick={() => showProToast("Uploading your own docs is a Pro feature.")}><I.Upload size={16} /></button>
             <textarea
-              placeholder="Ask about LangChain or HuggingFace — e.g. 'How do agents work?' or 'Fine-tune with PEFT?'"
+              placeholder="Ask about LangChain, HuggingFace or ChromaDB — e.g. 'How do agents work?' or 'Fine-tune with PEFT?'"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
@@ -1074,7 +1074,7 @@ function SidebarUser({ user, go }) {
         <div className="avatar">{initial}</div>
         <div style={{ flex: 1, textAlign: "left", overflow: "hidden" }}>
           <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</div>
-          <div className="mono" style={{ fontSize: 11, color: "var(--ink-3)" }}>LangChain · free</div>
+          <div className="mono" style={{ fontSize: 11, color: "var(--ink-3)" }}>3 sources · free</div>
         </div>
         <I.Chevron size={14} style={{ color: "var(--ink-3)" }} />
       </button>

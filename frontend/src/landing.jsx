@@ -30,7 +30,7 @@ function Landing({ go, theme, toggleTheme, user }) {
               </span>
             </h1>
             <p className="lede">
-              Wizardocs is a domain-specific Q&A system for ML and LLM documentation. Ask a question — get a cited, accurate answer drawn exclusively from LangChain, HuggingFace, MLflow, and the best RAG & vector-DB writing on the internet.
+              Wizardocs is a domain-specific Q&A system for ML and LLM documentation. Ask a question — get a cited, accurate answer drawn exclusively from LangChain, HuggingFace & ChromaDB docs, with more sources on the way.
             </p>
             <div className="cta-row">
               {user ? (
@@ -48,13 +48,13 @@ function Landing({ go, theme, toggleTheme, user }) {
                 </>
               )}
               <div className="mono" style={{fontSize:12, color:"var(--ink-3)", marginLeft:"auto"}}>
-                <I.Dot size={10} style={{color:"var(--good)", verticalAlign:"middle"}}/> LangChain live · HuggingFace, MLflow & more coming soon
+                <I.Dot size={10} style={{color:"var(--good)", verticalAlign:"middle"}}/> LangChain, HuggingFace & ChromaDB live · MLflow & more coming soon
               </div>
             </div>
             <div className="trust">
               <div className="mono tiny">sources</div>
               <div className="logos">
-                {["LangChain","HuggingFace","MLflow","RAG writing","Vector DB blogs"].map(l => (
+                {["LangChain","HuggingFace","ChromaDB","MLflow · soon","BYOD · soon"].map(l => (
                   <div key={l} className="logo-word">{l}</div>
                 ))}
               </div>
@@ -75,7 +75,7 @@ function Landing({ go, theme, toggleTheme, user }) {
           <div className="ticker-inner">
             {Array.from({length: 2}).map((_, r) => (
               <div key={r} className="ticker-row">
-                {["source · LangChain docs", "hybrid: BM25 + dense", "reranker: cross-encoder", "citations: always on", "HuggingFace · coming soon", "MLflow · coming soon", "RAG & vector-DB blogs · coming soon", "bring-your-own docs · soon"].map((t,i)=>(
+                {["source · LangChain docs", "source · HuggingFace docs", "source · ChromaDB docs", "hybrid: BM25 + dense", "reranker: cross-encoder", "citations: always on", "MLflow · coming soon", "bring-your-own docs · soon"].map((t,i)=>(
                   <span key={i} className="tick">
                     <I.Dot size={8} style={{color:"var(--accent)"}}/> {t}
                   </span>
@@ -97,7 +97,7 @@ function Landing({ go, theme, toggleTheme, user }) {
             {
               n: "01", tag: "SOURCES",
               title: "Curated, always-fresh sources.",
-              body: "We ingest and re-crawl the canonical ML/LLM docs — LangChain, HuggingFace, MLflow — plus the best RAG and vector-DB writing. Semantic chunking, heading-aware, de-duped.",
+              body: "We index the canonical ML/LLM docs — LangChain, HuggingFace (7 libraries) & ChromaDB — 13,280 chunks, semantic chunking, heading-aware, de-duped. MLflow and more coming soon.",
               art: <StepArtIngest/>
             },
             {
@@ -175,7 +175,7 @@ function Landing({ go, theme, toggleTheme, user }) {
               price: "$0",
               note: "forever",
               features: [
-                "Ask anything — LangChain docs included",
+                "Ask anything — LangChain, HuggingFace & ChromaDB included",
                 "10 chats stored, messages kept for 2 most recent",
                 "100 queries / month",
                 "Inline citations + confidence meter",
@@ -282,7 +282,7 @@ function Landing({ go, theme, toggleTheme, user }) {
           <div className="cta-bg"/>
           <h2 className="h2" style={{marginBottom: 10, marginInline: "auto"}}>Your library. Finally answering back.</h2>
           <p className="muted" style={{maxWidth: 520, marginInline:"auto"}}>
-            Start free — no credit card. 100 queries a month, LangChain docs included. Your first answer in under a minute.
+            Start free — no credit card. 100 queries a month, LangChain, HuggingFace & ChromaDB included. Your first answer in under a minute.
           </p>
           <div className="cta-row" style={{justifyContent:"center", marginTop: 24}}>
             {user ? (

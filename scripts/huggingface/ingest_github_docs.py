@@ -3,11 +3,11 @@ ingest_github_docs.py — Index HuggingFace library docs from GitHub markdown fi
 
 Strategy:
   1. One GitHub API call per library → full recursive file tree
-  2. Raw content fetched from raw.githubusercontent.com (no API rate limits)
+  2. Raw .md files saved to rag-dataset/data/raw/huggingface_md/{library}/
   3. Frontmatter stripped, text chunked, embedded via OpenAI, stored in Chroma
 
 Usage:
-    python scripts/ingest_github_docs.py
+    python scripts/huggingface/ingest_github_docs.py
 
 Optional env var:
     GITHUB_TOKEN — increases GitHub API rate limit from 60 to 5000 req/hr.

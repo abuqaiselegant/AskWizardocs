@@ -23,7 +23,7 @@ function Nav({ go, toggleTheme, theme, user }) {
         <a href="#features"   onClick={(e) => { e.preventDefault(); goSection("features", go); }}>Features</a>
         <a href="#howitworks" onClick={(e) => { e.preventDefault(); goSection("howitworks", go); }}>How it works</a>
         <a href="#pricing"    onClick={(e) => { e.preventDefault(); goSection("pricing", go); }}>Pricing</a>
-        <a href="/docs" target="_blank" rel="noreferrer">Docs ↗</a>
+        <a href="#" onClick={(e) => { e.preventDefault(); go("docs"); }}>Docs</a>
       </div>
       <div className="wd-nav-actions">
         {toggleTheme && (

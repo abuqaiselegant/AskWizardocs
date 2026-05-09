@@ -564,19 +564,17 @@ function Footer({ go = () => {} }) {
       { label: "Overview",   action: () => { go("landing"); window.scrollTo({top:0, behavior:"smooth"}); } },
       { label: "Features",   action: () => window.goSection("features", go) },
       { label: "Pricing",    action: () => window.goSection("pricing", go) },
-      { label: "Changelog",  action: null },
     ],
     Developers: [
-      { label: "Docs",       href: "/docs" },
-      { label: "API",        href: "/docs" },
+      { label: "Docs",       action: () => go("docs") },
+      { label: "API",        action: () => go("api_reference") },
       { label: "Self-host",  href: "https://github.com/abuqaiselegant/AskWizardocs", external: true },
       { label: "Evals",      action: () => go("chat") },
     ],
     Company: [
       { label: "About",      action: () => { go("landing"); window.scrollTo({top:0, behavior:"smooth"}); } },
-      { label: "Manifesto",  action: null },
-      { label: "Careers",    action: null },
-      { label: "Contact",    action: null },
+      { label: "Manifesto",  action: () => go("manifesto") },
+      { label: "Contact",    action: () => go("contact") },
     ],
   };
 

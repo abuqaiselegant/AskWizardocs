@@ -69,6 +69,7 @@ function App() {
     setPage(p);
   };
 
+
   const toggleTheme = () => setTheme(t => t === "dark" ? "light" : "dark");
 
   // Don't render anything until the initial session check resolves — prevents flash
@@ -76,11 +77,15 @@ function App() {
 
   return (
     <div>
-      {page === "landing" && <Landing  go={go} theme={theme} toggleTheme={toggleTheme} user={user}/>}
-      {page === "signin"  && <AuthShell go={go}/>}
-      {page === "signup"  && <AuthShell go={go}/>}
-      {page === "chat"    && <Chat     go={go} theme={theme} toggleTheme={toggleTheme} user={user}/>}
-      {page === "profile" && <Profile  go={go} theme={theme} toggleTheme={toggleTheme} user={user}/>}
+      {page === "landing"       && <Landing      go={go} theme={theme} toggleTheme={toggleTheme} user={user}/>}
+      {page === "signin"        && <AuthShell    go={go}/>}
+      {page === "signup"        && <AuthShell    go={go}/>}
+      {page === "chat"          && <Chat         go={go} theme={theme} toggleTheme={toggleTheme} user={user}/>}
+      {page === "profile"       && <Profile      go={go} theme={theme} toggleTheme={toggleTheme} user={user}/>}
+      {page === "docs"          && <Docs         go={go} theme={theme} toggleTheme={toggleTheme} user={user}/>}
+      {page === "api_reference" && <ApiReference go={go} theme={theme} toggleTheme={toggleTheme} user={user}/>}
+      {page === "manifesto"     && <Manifesto    go={go} theme={theme} toggleTheme={toggleTheme} user={user}/>}
+      {page === "contact"       && <Contact      go={go} theme={theme} toggleTheme={toggleTheme} user={user}/>}
     </div>
   );
 }

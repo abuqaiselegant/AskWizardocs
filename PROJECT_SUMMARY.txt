@@ -1,6 +1,6 @@
 ================================================================================
 WIZARDOCS — COMPLETE PROJECT SUMMARY
-Last updated: 2026-05-08
+Last updated: 2026-05-09
 ================================================================================
 
 ────────────────────────────────────────────────────────────────────────────────
@@ -34,8 +34,13 @@ The product is positioned as a SaaS tool:
     · Up to 20 seats, shared workspaces
     · SSO / SAML, dedicated support
 
-Current corpus: LangChain documentation only (3,235 deduplicated chunks).
-Roadmap corpus: HuggingFace, MLflow, RAG writing, Vector DB blogs.
+Current corpus: 3 indexed sources, 13,280 total chunks:
+  · LangChain   — 3,235 chunks  (700+ HTML pages, full API + guides)
+  · HuggingFace — 9,560 chunks  (Hub, Transformers, PEFT, TRL, Diffusers,
+                                  Smolagents, Accelerate — GitHub .md files)
+  · ChromaDB    — 485 chunks    (full docs.trychroma.com sitemap)
+Source selector in chat lets users filter retrieval to a single source or
+search all sources at once.
 Future: users upload their own docs (bring-your-own-docs, Pro feature).
 
 ────────────────────────────────────────────────────────────────────────────────
@@ -47,9 +52,9 @@ BACKEND (Python / FastAPI)
   api/auth.py                 — JWT verification via Supabase JWKS (ES256)
   api/db.py                   — Supabase REST helpers (service-role, bypasses RLS)
   src/retrieval/
-    vector_retriever.py       — ChromaDB vector search (text-embedding-3-small)
-    bm25_retriever.py         — BM25 keyword search
-    hybrid_retriever.py       — RRF fusion of BM25 + vector, then reranks
+    vector_retriever.py       — ChromaDB vector search (text-embedding-3-small); source= filter via Chroma where clause
+    bm25_retriever.py         — BM25 keyword search; source= filter applied post-scoring
+    hybrid_retriever.py       — RRF fusion of BM25 + vector, then reranks; source= threaded through
     reranker.py               — Cohere cross-encoder reranker (top 20 -> top 5)
   src/generation/
     generator.py              — Full pipeline: retrieve → rerank → generate → confidence + followups
@@ -69,7 +74,8 @@ BACKEND (Python / FastAPI)
 VECTOR STORE
   ChromaDB (local, file-based at ./chroma_db)
   Model: OpenAI text-embedding-3-small
-  3,235 chunks from LangChain documentation
+  13,280 chunks across 3 sources (langchain, huggingface, chromadb)
+  source field stored in metadata → enables per-source Chroma where filter
 
 DATABASE / AUTH
   Supabase (managed Postgres + Auth)
@@ -127,20 +133,23 @@ REAL (fully working):
   OK  Query tracking — query_usage table, per-user per-month, incremented on /ask
   OK  Query counter in chat — progress bar in source bar, turns red at 100
   OK  Query limit wall — compose area replaced with upgrade prompt at 100 queries
+  OK  Backend query quota enforcement — /ask returns 402 if free user exceeds 100/month
   OK  Pro gate toasts — Save and Upload buttons notify free users to upgrade
   OK  Profile stats — shows real chats, your docs (0 until BYOD), plan
-  OK  Landing ticker / trust section — accurate (LangChain live, rest coming soon)
+  OK  Multi-source retrieval — LangChain, HuggingFace, ChromaDB all indexed (13,280 chunks)
+  OK  Source selector in chat — interactive chips filter retrieval to one source or all
+  OK  Source filter threaded through full RAG stack (BM25 + vector + reranker)
 
 FAKE / NOT YET IMPLEMENTED:
   NO  Bookmarks/saved answers — empty state shown, no backend, pro feature
-  NO  Backend query quota enforcement — UI blocks at 100 but /ask doesn't reject 402
   NO  Plan enforcement — users can't upgrade, plan is always "free"
   NO  Stripe / payments — no payment flow exists
   NO  Export conversations — UI button exists in designs, not wired
   NO  Bring-your-own-docs (BYOD) — no upload endpoint, no multi-tenant retrieval
   NO  Chunk quota enforcement — chunk_usage tracked but never checked on upload
   NO  GitHub OAuth — deferred
-  NO  Multi-doc answering — single shared LangChain index only
+  NO  Multi-source simultaneous answering — source selector is single-select only;
+      selecting multiple sources at once (Pro feature) not yet built
 
 ────────────────────────────────────────────────────────────────────────────────
 4. PRO FEATURE LIST (agreed 2026-05-07)
@@ -171,44 +180,39 @@ NEXT UP — Core product gaps:
       - UI: upgrade page / modal from landing pricing CTA
       - Required before any pro feature gating is meaningful
 
-  [2] Backend query quota enforcement
-      - query_usage table tracking IS done (per-user, per-month)
-      - Remaining: /ask should check count before running RAG, reject 402 if free user > 100
-      - UI-only gate exists (compose blocked at 100) but server doesn't enforce it yet
-      - Low effort: add one check at top of ask_endpoint using db.get_queries_used()
-
-  [3] Bookmarks / saved answers (Pro feature 1)
+  [2] Bookmarks / saved answers (Pro feature 1)
       - Backend: add bookmarked bool + bookmark_note to messages table
       - POST /messages/{id}/bookmark endpoint
       - Frontend: "Save" button on each assistant message (already visible)
       - Profile bookmarks tab: list real saved answers, click to open chat
       - Gate: free users see lock icon + upgrade prompt
 
-  [4] Bring-your-own-docs (Pro feature 2) — Phase 5
+  [3] Bring-your-own-docs (Pro feature 2) — Phase 5
       - POST /documents: upload PDF/MD/TXT, chunk, embed, store per workspace
-      - Multi-tenant retrieval: search workspace collection + shared LangChain
+      - Multi-tenant retrieval: search workspace collection + shared index
       - Profile library tab: list docs, usage bar, delete, upload button
       - Chunk quota: free tier limit check on upload
       - Gate: pro only
 
-  [5] Full history for Pro (Pro feature 3)
+  [4] Full history for Pro (Pro feature 3)
       - Change cap rule: pro users keep messages for all 10 chats, not just 2
       - Backend: check plan in create_chat() before deleting messages
       - Low effort once plan is real
 
 LATER — Polish and growth:
 
-  [6] Export conversations
+  [5] Export conversations
       - "Export" button in chat header → download as Markdown
       - Pro only gate
 
-  [7] GitHub OAuth
+  [6] GitHub OAuth
       - Was deferred — add back when Stripe is live (reduces friction at signup)
 
-  [8] Multi-doc answering
-       - Allow users to select multiple doc sources in chat source bar
-       - Search all selected collections, merge and rerank
-       - Pro only
+  [7] Multi-source simultaneous answering (Pro feature)
+      - Source selector currently single-select only
+      - Allow users to select multiple sources at once
+      - Search all selected, merge and rerank across sources
+      - Pro only
 
 ────────────────────────────────────────────────────────────────────────────────
 6. KEY ARCHITECTURAL DECISIONS (with rationale)
@@ -295,12 +299,28 @@ DECISION: Cap rule — messages only for last 2 chats
 9. ARCHITECTURE & REQUEST FLOW
 ────────────────────────────────────────────────────────────────────────────────
 
-OFFLINE — One-time ingestion (scripts/ folder, already done)
-  1. Scrape    scripts/ download LangChain HTML pages
-  2. Parse     HTML → clean text (trafilatura / BeautifulSoup)
-  3. Chunk     Semantic chunking, heading-aware, deduped → chunks.jsonl (3,235 chunks)
-  4. Embed     OpenAI text-embedding-3-small in batches → stored in ChromaDB (chroma_db/)
-  5. BM25      BM25Okapi index built in-memory from chunks.jsonl on every server startup
+OFFLINE — Ingestion pipelines (scripts/ folder, already run)
+
+  LangChain (scripts/langchain/) — HTML pipeline:
+  1. Scrape    01_langchain_sitemap_to_urls.py → langchain_urls.txt
+  2. Download  02_download_pages.py → rag-dataset/data/raw/langchain_html/ (.html + .url pairs)
+  3. Parse     03_html_to_docs.py → trafilatura extracts clean text → docs.jsonl
+  4. Chunk     04_docs_to_chunks.py → 1200-char windows, 200 overlap → chunks.jsonl
+  5. Dedup     05_dedup_chunks.py → MD5 dedup, re-embed clean set → 3,235 chunks in Chroma
+
+  HuggingFace (scripts/huggingface/ingest_github_docs.py) — GitHub .md pipeline:
+  1. Tree      GitHub API: GET /repos/{repo}/git/trees/main?recursive=1 (1 call/library)
+  2. Fetch     raw.githubusercontent.com/{repo}/main/{path} (no API rate limit)
+  3. Clean     strip YAML frontmatter + HTML comments, collapse blank lines
+  4. Chunk     same 1200/200 window → 9,560 chunks across 7 libraries
+  5. Embed     OpenAI text-embedding-3-small → stored in Chroma with source="huggingface"
+  Note: .md files are NOT saved to disk; processed in-memory (stable source, fast re-run)
+
+  ChromaDB (scripts/huggingface/ingest_source.py) — HTML pipeline (generic):
+  1. Sitemap   fetch docs.trychroma.com/sitemap.xml → 169 URLs
+  2. Download  requests.get each page → trafilatura → chunk → embed → 485 chunks
+
+  BM25      Built in-memory from chunks.jsonl (all 13,280 chunks) on every server startup
 
 ─────────────────────────────────────────────────────────────────
 
@@ -308,7 +328,8 @@ ONLINE — Every POST /ask request
 
   Browser (React)
     │
-    │  POST /ask  { question, chat_id, history[last 6 messages] }
+    │  POST /ask  { question, chat_id, history[last 6 messages], source }
+    │             source: "langchain" | "huggingface" | "chromadb" | null (all)
     │  Authorization: Bearer <Supabase ES256 JWT>
     ▼
   FastAPI  api/main.py
@@ -318,7 +339,11 @@ ONLINE — Every POST /ask request
     │     Verifies ES256 JWT signature → extracts user_id (sub claim)
     │     Returns 401 if token missing, expired, or invalid
     │
-    └── generator.ask(question, history)
+    ├── db.check_quota(user_id)
+    │     Fetches plan from users_profile; if free, checks query_usage
+    │     Returns 402 if free user has used ≥ 100 queries this month
+    │
+    └── generator.ask(question, history, source=source)
           │
           ├─ [1] RETRIEVAL QUERY ENRICHMENT
           │       If history exists → prepend last user turn to current question
@@ -326,10 +351,11 @@ ONLINE — Every POST /ask request
           │       keeps the retriever anchored to the right topic
           │
           ├─ [2] HYBRID RETRIEVAL  (hybrid_retriever.py)
-          │   ├─ BM25 search     → tokenize query → score all 3,235 chunks
-          │   │                    → top 20 keyword matches
+          │   ├─ BM25 search     → tokenize query → score all 13,280 chunks
+          │   │                    → filter by source if set → top 20 matches
           │   ├─ Vector search   → embed query (text-embedding-3-small)
-          │   │                    → ChromaDB cosine similarity → top 20
+          │   │                    → ChromaDB cosine similarity
+          │   │                    → where={"source": source} if set → top 20
           │   └─ RRF fusion      → score(chunk) = Σ 1 / (60 + rank_i)
           │                         scale-independent; chunk in both lists
           │                         scores higher → merged top 20 candidates

@@ -2,7 +2,7 @@
 
 const DOC_SOURCES = [
   { id: "langchain",   label: "LangChain",   dot: "#2ca190", n: 3235, live: true  },
-  { id: "huggingface", label: "HuggingFace", dot: "#ff9d00", n: 185,  live: true  },
+  { id: "huggingface", label: "HuggingFace", dot: "#ff9d00", n: 9560, live: true  },
   { id: "chromadb",    label: "ChromaDB",    dot: "#8b5cf6", n: 0,    live: false },
 ];
 
@@ -272,12 +272,12 @@ function Chat({ go, theme, toggleTheme, user }) {
           <div className="side-group-head mono">Library</div>
           <div className="lib-stat">
             <div>
-              <div className="lib-n">3,235</div>
+              <div className="lib-n">12,795</div>
               <div className="lib-l mono">indexed chunks</div>
             </div>
             <div>
               <div className="lib-n" style={{ color: "var(--good)" }}>●</div>
-              <div className="lib-l mono">LangChain docs</div>
+              <div className="lib-l mono">2 sources live</div>
             </div>
           </div>
         </div>
@@ -363,7 +363,7 @@ function Chat({ go, theme, toggleTheme, user }) {
             {messages.length === 0 && (
               <div className="empty-state">
                 <I.Logo size={48} style={{ color: "var(--accent)", opacity: 0.4 }} />
-                <p className="mono" style={{ color: "var(--ink-3)", marginTop: 16 }}>Ask anything about LangChain</p>
+                <p className="mono" style={{ color: "var(--ink-3)", marginTop: 16 }}>Ask anything about LangChain & HuggingFace</p>
               </div>
             )}
             {messages.map((m, i) => m.role === "user" ? (
@@ -422,7 +422,7 @@ function Chat({ go, theme, toggleTheme, user }) {
           <div className="composer">
             <button className="comp-btn" title="Upload your own docs (Pro)" onClick={() => showProToast("Uploading your own docs is a Pro feature.")}><I.Upload size={16} /></button>
             <textarea
-              placeholder="Ask about LangChain — e.g. 'How do agents work?' or 'Explain LCEL pipelines'"
+              placeholder="Ask about LangChain or HuggingFace — e.g. 'How do agents work?' or 'Fine-tune with PEFT?'"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
@@ -436,7 +436,7 @@ function Chat({ go, theme, toggleTheme, user }) {
             </button>
           </div>
           <div className="compose-foot mono">
-            <span><I.Shield size={11} /> Grounded in 3,235 deduplicated LangChain doc chunks</span>
+            <span><I.Shield size={11} /> Grounded in 12,795 chunks — LangChain & HuggingFace docs</span>
             <span><span className="kbd">↵</span> send · <span className="kbd">⇧ ↵</span> newline</span>
           </div>
         </div>

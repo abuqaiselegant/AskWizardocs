@@ -143,10 +143,11 @@ function Manifesto({ go, theme, toggleTheme, user }) {
         {/* Closing */}
         <section className="ab-closing">
           <p className="ab-closing-quote">
-            "That is what we are building.<br/>
-            Slowly. Carefully. With citations."
+            "Knowledge that cannot be retrieved<br/>
+            might as well not exist.<br/>
+            <span style={{color:"var(--accent)"}}>We are fixing that.</span>"
           </p>
-          <div style={{marginTop:40, display:"flex", gap:16, flexWrap:"wrap"}}>
+          <div style={{marginTop:40, display:"flex", gap:16, flexWrap:"wrap", justifyContent:"center"}}>
             <button className="btn primary" onClick={() => go("chat")}>Try Wizardocs</button>
             <a href="https://github.com/abuqaiselegant/AskWizardocs" target="_blank" rel="noreferrer"
                className="btn ghost">View on GitHub ↗</a>

@@ -273,7 +273,17 @@ function BookShelf({ intensity = "full" }) {
             <path d="M 315 98 Q 325 104 337 98" stroke="#0a0a0f" strokeWidth="2" fill="none" strokeLinecap="round"/>
           </g>
 
-          {/* Tiny bouncing bookworm */}
+          {/* Trailing worm — amber, slightly behind the main one */}
+          <g className="worm worm-trail">
+            <circle cx="65" cy="324" r="4.5" fill="#f5b57c" stroke="#0a0a0f" strokeWidth="2"/>
+            <circle cx="75" cy="322" r="5.5" fill="#f5b57c" stroke="#0a0a0f" strokeWidth="2"/>
+            <circle cx="86" cy="324" r="4.5" fill="#f5b57c" stroke="#0a0a0f" strokeWidth="2"/>
+            <circle cx="73" cy="320" r="0.7" fill="#0a0a0f"/>
+            <circle cx="77" cy="320" r="0.7" fill="#0a0a0f"/>
+            <path d="M 81 318 L 83 315 M 85 318 L 88 315" stroke="#0a0a0f" strokeWidth="1.2" strokeLinecap="round"/>
+          </g>
+
+          {/* Tiny bouncing bookworm — green, leads */}
           <g className="worm">
             <circle cx="90" cy="324" r="5" fill="#74c99a" stroke="#0a0a0f" strokeWidth="2"/>
             <circle cx="100" cy="322" r="6" fill="#74c99a" stroke="#0a0a0f" strokeWidth="2"/>
@@ -348,7 +358,8 @@ function BookShelf({ intensity = "full" }) {
         }
 
         /* Bookworm wiggles across */
-        .worm { animation: wormMove 8s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: center; }
+        .worm { animation: wormMove 14s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: center; }
+        .worm-trail { opacity: 0.75; }
         @keyframes wormMove {
           0%   { transform: translateX(0) translateY(0); }
           25%  { transform: translateX(40px) translateY(-2px); }

@@ -160,6 +160,14 @@
   .no-scrollbar::-webkit-scrollbar { display: none }
   .no-scrollbar { scrollbar-width: none; }
 
+  /* Custom scrollbar — dark-themed to match the app */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--ink-4); }
+  ::-webkit-scrollbar-corner { background: transparent; }
+  * { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+
   .page-enter { animation: pageIn .45s cubic-bezier(.2,.8,.2,1) both; }
   @keyframes pageIn {
     from { opacity: 0; transform: translateY(8px) }

@@ -1,8 +1,8 @@
 # Wizardocs
 
-A RAG-powered Q&A system for ML and LLM documentation. Ask a question, get a cited answer grounded in real docs — with source links you can verify.
+A RAG-powered Q&A system for ML and LLM documentation. Ask a question, get a cited answer grounded in real docs - with source links you can verify.
 
-**Live sources:** LangChain · HuggingFace (7 libraries) · ChromaDB — 13,280 indexed chunks
+**Live sources:** LangChain, HuggingFace (7 libraries), ChromaDB - 13,280 indexed chunks
 
 ---
 

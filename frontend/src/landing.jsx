@@ -1,4 +1,6 @@
 // Landing page — hero with shelf, how it works, features, footer
+import { I } from "./icons.jsx";
+import { Nav, Footer, BookShelf, FloatingDocs } from "./shared.jsx";
 
 function Landing({ go, theme, toggleTheme, user }) {
   return (
@@ -557,96 +559,4 @@ function StepArtGround() {
   );
 }
 
-function Footer({ go = () => {} }) {
-  const noop = (e) => e.preventDefault();
-  const LINKS = {
-    Product: [
-      { label: "Overview",   action: () => { go("landing"); window.scrollTo({top:0, behavior:"smooth"}); } },
-      { label: "Features",   action: () => window.goSection("features", go) },
-      { label: "Pricing",    action: () => window.goSection("pricing", go) },
-    ],
-    Developers: [
-      { label: "Docs",       action: () => go("docs") },
-      { label: "API",        action: () => go("api_reference") },
-      { label: "Self-host",  href: "https://github.com/abuqaiselegant/AskWizardocs", external: true },
-      { label: "Evals",      action: () => go("chat") },
-    ],
-    Company: [
-      { label: "About",     action: () => go("manifesto") },
-      { label: "Contact",   action: () => go("contact") },
-    ],
-  };
-
-  return (
-    <footer className="wd-footer">
-      <div className="wd-foot-inner">
-        <div className="wd-foot-brand">
-          <button onClick={() => { go("landing"); window.scrollTo({top:0,behavior:"smooth"}); }}
-            style={{display:"flex", alignItems:"center", gap:10, fontFamily:"var(--font-display)", fontWeight:600, background:"none", border:"none", cursor:"pointer", color:"inherit"}}>
-            <I.Logo size={22} style={{color:"var(--accent)"}}/> Wizardocs<span style={{color:"var(--accent)"}}>.</span>
-          </button>
-          <p style={{color:"var(--ink-3)", fontSize:13, maxWidth:280, marginTop:12}}>
-            The retrieval layer for teams that treat their docs as infrastructure.
-          </p>
-        </div>
-        <div className="wd-foot-cols">
-          {Object.entries(LINKS).map(([heading, items]) => (
-            <div key={heading}>
-              <div className="mono" style={{fontSize:11, color:"var(--ink-3)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:12}}>{heading}</div>
-              {items.map(item => {
-                if (item.href) {
-                  return (
-                    <a key={item.label} className="foot-link"
-                       href={item.href}
-                       target={item.external ? "_blank" : undefined}
-                       rel={item.external ? "noreferrer" : undefined}>
-                      {item.label}{item.external ? " ↗" : ""}
-                    </a>
-                  );
-                }
-                if (item.action) {
-                  return (
-                    <a key={item.label} className="foot-link" href="#"
-                       onClick={(e) => { e.preventDefault(); item.action(); }}>
-                      {item.label}
-                    </a>
-                  );
-                }
-                return (
-                  <span key={item.label} className="foot-link foot-soon">{item.label}</span>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="wd-foot-bottom mono">
-        <span>© 2026 Wizardocs Labs</span>
-        <span>Built for people who actually read the docs.</span>
-      </div>
-      <style>{`
-        .wd-footer { border-top: 1px solid var(--line); background: var(--bg-2); }
-        .wd-foot-inner {
-          max-width: 1280px; margin: 0 auto; padding: 64px 32px 32px;
-          display:grid; grid-template-columns: 1.2fr 2fr; gap: 48px;
-        }
-        .wd-foot-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
-        .foot-link { display:block; color: var(--ink-2); font-size: 13.5px; padding: 4px 0; }
-        .foot-link:hover { color: var(--ink); }
-        .foot-soon { color: var(--ink-4) !important; cursor: default; }
-        .wd-foot-bottom {
-          max-width: 1280px; margin: 0 auto; padding: 24px 32px; border-top: 1px solid var(--line);
-          display:flex; justify-content: space-between; color: var(--ink-3); font-size: 12px;
-        }
-        @media (max-width: 880px) {
-          .wd-foot-inner { grid-template-columns: 1fr; }
-          .wd-foot-cols { grid-template-columns: repeat(2, 1fr); }
-          .wd-foot-bottom { flex-direction: column; gap: 6px; }
-        }
-      `}</style>
-    </footer>
-  );
-}
-
-window.Landing = Landing;
-window.Footer = Footer;
+export { Landing };

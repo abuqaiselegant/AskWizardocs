@@ -4,19 +4,10 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Wizardocs</title>
-<link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,400&display=swap">
-
-<script>
-  // API base URL: empty string = same origin (when served via FastAPI at :8000).
-  window.API_BASE = "";
-
-  // Supabase config — filled in from your Supabase project settings.
-  window.SUPABASE_URL      = "https://qwueioebabkgcofhpltu.supabase.co";
-  window.SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3dWVpb2ViYWJrZ2NvZmhwbHR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxNDMwODcsImV4cCI6MjA5MzcxOTA4N30.WqX6DDzEPvK1hAqkzi5ZZ97_8_AKO1RTiaRfZLfOLY0";
-</script>
 
 <style>
   :root {
@@ -198,28 +189,7 @@
 
 <div id="root"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-  // Initialize the Supabase client once, shared across all JSX files via window._supabase.
-  window._supabase = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-</script>
-
-<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
-<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
-
-<script type="text/babel" src="src/icons.jsx"></script>
-<script type="text/babel" src="src/shared.jsx"></script>
-<script type="text/babel" src="src/landing.jsx"></script>
-<script type="text/babel" src="src/auth.jsx"></script>
-<script type="text/babel" src="src/chat.jsx"></script>
-<script type="text/babel" src="src/profile.jsx"></script>
-<script type="text/babel" src="src/docs.jsx"></script>
-<script type="text/babel" src="src/api_reference.jsx"></script>
-<script type="text/babel" src="src/manifesto.jsx"></script>
-<script type="text/babel" src="src/contact.jsx"></script>
-<script type="text/babel" src="src/app.jsx"></script>
+<script type="module" src="/src/main.jsx"></script>
 
 </body>
 </html>

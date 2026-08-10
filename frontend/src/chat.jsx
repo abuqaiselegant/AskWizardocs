@@ -1,4 +1,9 @@
-// Chat page — wired to the AskMyDocs backend at window.API_BASE
+// Chat page — wired to the AskMyDocs backend at API_BASE
+import React from "react";
+import { marked } from "marked";
+import { I } from "./icons.jsx";
+import { sb } from "./supabase.js";
+import { API_BASE } from "./config.js";
 
 const DOC_SOURCES = [
   { id: "langchain",   label: "LangChain",   dot: "#2ca190", n: 3235, live: true  },
@@ -42,13 +47,13 @@ function Chat({ go, theme, toggleTheme, user }) {
   };
 
   const authHdr = async () => {
-    const { data: { session } } = await window._supabase.auth.getSession();
+    const { data: { session } } = await sb.auth.getSession();
     return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
   };
 
   const loadChatMessages = async (id) => {
     const h = await authHdr();
-    const res = await fetch(`${window.API_BASE}/chats/${id}/messages`, { headers: h });
+    const res = await fetch(`${API_BASE}/chats/${id}/messages`, { headers: h });
     if (!res.ok) return;
     const msgs = await res.json();
     const srcs = [];
@@ -73,8 +78,8 @@ function Chat({ go, theme, toggleTheme, user }) {
     (async () => {
       const h = await authHdr();
       const [chatsRes, profileRes] = await Promise.all([
-        fetch(`${window.API_BASE}/chats`,   { headers: h }),
-        fetch(`${window.API_BASE}/profile`, { headers: h }),
+        fetch(`${API_BASE}/chats`,   { headers: h }),
+        fetch(`${API_BASE}/profile`, { headers: h }),
       ]);
       if (profileRes.ok) {
         const p = await profileRes.json();
@@ -131,7 +136,7 @@ function Chat({ go, theme, toggleTheme, user }) {
     // Create chat if this is a new conversation
     let currentChatId = chatId;
     if (!currentChatId) {
-      const cr = await fetch(`${window.API_BASE}/chats`, {
+      const cr = await fetch(`${API_BASE}/chats`, {
         method: "POST", headers: hdrs,
         body: JSON.stringify({ title: q.slice(0, 80) }),
       });
@@ -140,14 +145,14 @@ function Chat({ go, theme, toggleTheme, user }) {
         currentChatId = chat_id;
         setChatId(chat_id);
         // Refresh sidebar so cap enforcement is reflected
-        const lr = await fetch(`${window.API_BASE}/chats`, { headers: h });
+        const lr = await fetch(`${API_BASE}/chats`, { headers: h });
         if (lr.ok) setHistory(await lr.json());
         setActiveId(chat_id);
       }
     }
 
     try {
-      const res = await fetch(`${window.API_BASE}/ask`, {
+      const res = await fetch(`${API_BASE}/ask`, {
         method: "POST",
         headers: hdrs,
         body: JSON.stringify({ question: q, chat_id: currentChatId, history: historyForContext, source: selectedSource }),
@@ -205,7 +210,7 @@ function Chat({ go, theme, toggleTheme, user }) {
       }, 18);
     } catch (err) {
       const errMsg = err.message.includes("Failed to fetch")
-        ? "Cannot reach the API — make sure the backend is running on " + window.API_BASE
+        ? "Cannot reach the API — make sure the backend is running on " + API_BASE
         : err.message;
       setMessages(ms => ms.map((m, idx) =>
         idx === ms.length - 1
@@ -817,11 +822,11 @@ function ReactMarkdown({ text, sources, onHoverCite, streamed }) {
 
   let tokens;
   try {
-    tokens = window.marked ? window.marked.lexer(text) : null;
+    tokens = marked.lexer(text);
   } catch(e) { tokens = null; }
 
   if (!tokens) {
-    // fallback if marked not loaded yet
+    // fallback if lexing failed
     const paras = text.split("\n\n");
     return paras.map((p, i) => (
       <p key={i}>
@@ -1064,7 +1069,7 @@ function SidebarUser({ user, go }) {
   const initial = name.charAt(0).toUpperCase();
 
   const signOut = async () => {
-    await window._supabase.auth.signOut();
+    await sb.auth.signOut();
     // onAuthStateChange in app.jsx handles the redirect to landing
   };
 
@@ -1115,5 +1120,4 @@ function QueryCounter({ used, limit, plan }) {
   );
 }
 
-window.Chat = Chat;
-window.ConfidenceMeter = ConfidenceMeter;
+export { Chat };

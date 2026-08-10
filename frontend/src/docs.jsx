@@ -1,4 +1,5 @@
 // Docs page — user guide for Wizardocs
+import { Nav, Footer } from "./shared.jsx";
 
 function Docs({ go, theme, toggleTheme, user }) {
   const sections = [
@@ -276,3 +277,5 @@ function Docs({ go, theme, toggleTheme, user }) {
     </div>
   );
 }
+
+export { Docs };

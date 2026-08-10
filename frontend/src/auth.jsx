@@ -1,4 +1,7 @@
 // Auth page — Google + GitHub OAuth only
+import React from "react";
+import { I } from "./icons.jsx";
+import { sb } from "./supabase.js";
 
 function AuthShell({ go }) {
   return (
@@ -64,7 +67,7 @@ function OAuthPanel({ go }) {
   const signIn = async (provider) => {
     setLoading(provider);
     setError(null);
-    const { error } = await window._supabase.auth.signInWithOAuth({
+    const { error } = await sb.auth.signInWithOAuth({
       provider,
       options: { redirectTo: window.location.origin },
     });
@@ -238,4 +241,4 @@ function AuthShelfArt() {
   );
 }
 
-window.AuthShell = AuthShell;
+export { AuthShell };

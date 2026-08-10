@@ -1,7 +1,12 @@
 // Profile page — real data wired to /profile and /chats endpoints
+import React from "react";
+import { I } from "./icons.jsx";
+import { Nav, Footer } from "./shared.jsx";
+import { sb } from "./supabase.js";
+import { API_BASE } from "./config.js";
 
 const _authHdr = async () => {
-  const { data: { session } } = await window._supabase.auth.getSession();
+  const { data: { session } } = await sb.auth.getSession();
   return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
 };
 
@@ -46,8 +51,8 @@ function Profile({ go, theme, toggleTheme, user }) {
     (async () => {
       const h = await _authHdr();
       const [pr, cr] = await Promise.all([
-        fetch(`${window.API_BASE}/profile`, { headers: h }),
-        fetch(`${window.API_BASE}/chats`,   { headers: h }),
+        fetch(`${API_BASE}/profile`, { headers: h }),
+        fetch(`${API_BASE}/chats`,   { headers: h }),
       ]);
       if (pr.ok) setProfile(await pr.json());
       if (cr.ok) setChats(await cr.json());
@@ -58,7 +63,7 @@ function Profile({ go, theme, toggleTheme, user }) {
   const handleClearHistory = async () => {
     if (!window.confirm("Clear all chat history? This cannot be undone.")) return;
     const h = await _authHdr();
-    await fetch(`${window.API_BASE}/chats`, { method: "DELETE", headers: h });
+    await fetch(`${API_BASE}/chats`, { method: "DELETE", headers: h });
     setChats([]);
   };
 
@@ -348,7 +353,7 @@ function Settings({ user, profile, go, onClearHistory }) {
   const plan  = profile?.plan || "free";
 
   const signOut = async () => {
-    await window._supabase.auth.signOut();
+    await sb.auth.signOut();
   };
 
   return (
@@ -461,4 +466,4 @@ function Settings({ user, profile, go, onClearHistory }) {
   );
 }
 
-window.Profile = Profile;
+export { Profile };

@@ -1,4 +1,5 @@
 // About + Manifesto — combined page
+import { Nav, Footer } from "./shared.jsx";
 
 function Manifesto({ go, theme, toggleTheme, user }) {
   return (
@@ -298,3 +299,5 @@ function Manifesto({ go, theme, toggleTheme, user }) {
     </div>
   );
 }
+
+export { Manifesto };

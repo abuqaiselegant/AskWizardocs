@@ -1,0 +1,10 @@
+# Caddy reverse proxy — terminates HTTPS and forwards to the FastAPI container.
+# Caddy auto-provisions and renews a Let's Encrypt certificate for this domain,
+# as long as the domain's DNS A record points at this server and ports 80/443 are open.
+#
+# 1. Replace your-domain.com below with your real domain.
+# 2. Point an A record (your-domain.com -> server public IP) before starting.
+
+your-domain.com {
+	reverse_proxy api:8000
+}

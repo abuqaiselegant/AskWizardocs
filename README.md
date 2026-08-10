@@ -22,7 +22,7 @@ A RAG-powered Q&A system for ML and LLM documentation. Ask a question, get a cit
 
 | Layer | Tech |
 |---|---|
-| Frontend | Vanilla React (no bundler), marked.js via CDN |
+| Frontend | React 18 + Vite, marked.js |
 | Backend | FastAPI, Python 3.12 |
 | Vector store | ChromaDB (local, file-based) |
 | Embeddings | OpenAI `text-embedding-3-small` |
@@ -59,10 +59,13 @@ scripts/
   huggingface/          — GitHub markdown pipeline + generic sitemap ingestion script
 
 frontend/src/
+  main.jsx              — Vite entry: mounts <App/>
   app.jsx               — Auth-aware router
   chat.jsx              — Chat UI: source selector, citations, confidence, history
   landing.jsx           — Marketing / landing page
   profile.jsx           — User stats and settings
+  config.js             — API_BASE from VITE_API_BASE
+  supabase.js           — Shared Supabase client
 ```
 
 ---
@@ -116,12 +119,18 @@ SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
 ```
 
-Start the server:
+Start the API:
 ```bash
 uvicorn api.main:app --reload
 ```
 
-Open `http://localhost:8000` — FastAPI serves the frontend too.
+Start the frontend (separate terminal) — dev values come from `frontend/.env.development`:
+```bash
+cd frontend && npm install && npm run dev
+```
+
+Open the URL Vite prints (`http://localhost:5173`). The API is separate, at
+`http://localhost:8000`.
 
 ---
 

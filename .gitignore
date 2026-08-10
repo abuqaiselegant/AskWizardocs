@@ -7,7 +7,7 @@ __pycache__/
 .env
 rough.ipynb
 PLAN.md
-PROJECT_SUMMARY.txt
+PROJECT_SUMMARY.md
 
 # Claude
 .claude/

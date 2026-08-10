@@ -1,4 +1,6 @@
 // Contact page — email + form
+import React from "react";
+import { Nav, Footer } from "./shared.jsx";
 
 function Contact({ go, theme, toggleTheme, user }) {
   const [form, setForm] = React.useState({ name: "", email: "", subject: "", message: "" });
@@ -239,3 +241,5 @@ function Contact({ go, theme, toggleTheme, user }) {
     </div>
   );
 }
+
+export { Contact };

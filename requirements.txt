@@ -1,17 +1,12 @@
-requests
-trafilatura
-beautifulsoup4
-lxml
-openai
-tiktoken
-chromadb
-python-dotenv
-rank-bm25
-cohere
-ragas
-langchain-openai
+# Runtime dependencies — what the serving path (api/ + src/generation + src/retrieval) imports.
+# Ingestion + evaluation deps live in requirements-dev.txt.
 fastapi
 uvicorn[standard]
-python-multipart
+openai
+chromadb
+rank-bm25
+cohere
+python-dotenv
+requests
 PyJWT
 cryptography

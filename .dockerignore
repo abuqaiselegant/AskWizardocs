@@ -3,9 +3,15 @@ __pycache__/
 *.pyc
 *.pyo
 .env
-chroma_db/
-rag-dataset/
+.DS_Store
+**/.DS_Store
+# Data: bake in only the runtime-needed artifacts (chroma_db/ + chunks.jsonl).
+# Exclude ingestion-only data — 666 MB of raw HTML and the intermediate docs.jsonl.
+rag-dataset/data/raw/
+rag-dataset/data/processed/docs.jsonl
 rough.ipynb
+# Frontend ships to Vercel, not into this image — keeps node_modules/dist out of the build context.
+frontend/
 .git/
 .claude/
 CLAUDE.md

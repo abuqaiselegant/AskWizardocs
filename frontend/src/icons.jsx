@@ -1,4 +1,5 @@
 // Minimal, crisp line icons — 1.5 stroke, square endings
+
 const Icon = ({ d, size = 18, stroke = 1.5, fill = "none", children, ...rest }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" {...rest}>
     {d ? <path d={d} /> : children}
@@ -51,4 +52,4 @@ const I = {
   Moon: (p) => <Icon {...p}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></Icon>,
 };
 
-window.I = I;
+export { I };

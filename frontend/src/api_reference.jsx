@@ -1,4 +1,6 @@
 // API Reference page — clean, professional endpoint documentation
+import React from "react";
+import { Nav, Footer } from "./shared.jsx";
 
 function ApiReference({ go, theme, toggleTheme, user }) {
   const [copied, setCopied] = React.useState(null);
@@ -513,3 +515,5 @@ function ApiReference({ go, theme, toggleTheme, user }) {
     </div>
   );
 }
+
+export { ApiReference };

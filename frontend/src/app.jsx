@@ -1,9 +1,17 @@
 // Top-level app: session management, page routing, dark/light theme toggle
+import React from "react";
+import { sb } from "./supabase.js";
+import { Landing } from "./landing.jsx";
+import { AuthShell } from "./auth.jsx";
+import { Chat } from "./chat.jsx";
+import { Profile } from "./profile.jsx";
+import { Docs } from "./docs.jsx";
+import { ApiReference } from "./api_reference.jsx";
+import { Manifesto } from "./manifesto.jsx";
+import { Contact } from "./contact.jsx";
 
 // Clear legacy tweaks key from old sessions
 try { localStorage.removeItem("wd-tweaks"); } catch {}
-
-const sb = window._supabase;
 
 function App() {
   const [page, setPage]   = React.useState("landing");
@@ -90,12 +98,4 @@ function App() {
   );
 }
 
-// Mount
-const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(<App/>);
-
-// Hide splash
-setTimeout(() => {
-  const s = document.getElementById("splash");
-  if (s) { s.classList.add("hide"); setTimeout(() => s.remove(), 500); }
-}, 400);
+export { App };

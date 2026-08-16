@@ -16,14 +16,19 @@ Why top 20 → top 5:
     5 is enough context for the LLM in Phase 4 without overwhelming it.
 
 Input:  query string + list of chunk dicts (from hybrid retriever)
-Output: top 5 chunk dicts with rerank_score attached
+Output: top 5 chunk dicts with rerank_score attached.
+        If the Cohere call fails (quota, rate limit, outage) the top 5 come back
+        in RRF order without rerank_score — degraded, but the request still works.
 """
 
+import logging
 import os
 import cohere
 from dotenv import load_dotenv
 
 load_dotenv()
+
+log = logging.getLogger(__name__)
 
 # ── Client ────────────────────────────────────────────────────────────────────
 cohere_client = cohere.Client(api_key=os.getenv("COHERE_API_KEY"))
@@ -41,7 +46,8 @@ def rerank(query: str, chunks: list[dict]) -> list[dict]:
         chunks: list of chunk dicts from hybrid retriever (up to 20)
 
     Returns:
-        top 5 chunks sorted by relevance_score descending
+        top 5 chunks sorted by relevance_score descending, or — if Cohere is
+        unavailable — the first 5 in the RRF order they arrived in
     """
 
     # cohere expects plain strings, not dicts
@@ -49,12 +55,20 @@ def rerank(query: str, chunks: list[dict]) -> list[dict]:
     texts = [chunk["text"] for chunk in chunks]
 
     # send to cohere — it reads each (query, text) pair together
-    response = cohere_client.rerank(
-        model     = RERANK_MODEL,
-        query     = query,
-        documents = texts,
-        top_n     = TOP_N,
-    )
+    try:
+        response = cohere_client.rerank(
+            model     = RERANK_MODEL,
+            query     = query,
+            documents = texts,
+            top_n     = TOP_N,
+        )
+    except Exception as e:
+        # Quota exhausted, rate limited, or Cohere is down. Fall back to the RRF
+        # ordering rather than failing the whole request — retrieval is a notch
+        # worse, but the user still gets a cited answer. The returned chunks carry
+        # no rerank_score, so generator.py falls back to its default confidence.
+        log.warning("Cohere rerank failed (%s) — falling back to RRF top %d", e, TOP_N)
+        return chunks[:TOP_N]
 
     # response.results is sorted by relevance (best first)
     # each result has .index (position in texts list) and .relevance_score

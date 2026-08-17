@@ -11,6 +11,10 @@ const DOC_SOURCES = [
   { id: "chromadb",    label: "ChromaDB",    dot: "#8b5cf6", n: 485,  live: true  },
 ];
 
+// The shortcut binds Cmd on Mac and Ctrl elsewhere, so the badge has to say
+// which — showing "⌘ K" to a Windows user names a key they do not have.
+const MOD_KEY = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent) ? "⌘" : "Ctrl";
+
 // slug -> display name, so a card can say where it actually came from
 const SOURCE_LABEL = Object.fromEntries(DOC_SOURCES.map(s => [s.id, s.label]));
 
@@ -52,7 +56,19 @@ function Chat({ go, theme, toggleTheme, user }) {
   const [plan, setPlan]             = React.useState("free");
   const [followups, setFollowups]       = React.useState([]);
   const [selectedSource, setSelectedSource] = React.useState(null);
+  const [search, setSearch]         = React.useState("");
   const scrollRef = React.useRef(null);
+
+  // Carry each chat's real position through the filter. The cap rule keys off
+  // it — only the top 2 chats have messages in the DB — so renumbering by the
+  // filtered position would make a match at position 5 try to load messages
+  // that were deleted.
+  const visibleChats = React.useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return history
+      .map((h, i) => ({ h, i }))
+      .filter(({ h }) => !q || (h.title || "").toLowerCase().includes(q));
+  }, [history, search]);
 
   const QUERY_LIMIT = 100;
   const isLimited = plan === "free" && queriesUsed >= QUERY_LIMIT;
@@ -61,6 +77,27 @@ function Chat({ go, theme, toggleTheme, user }) {
     setProToast(msg);
     setTimeout(() => setProToast(null), 4000);
   };
+
+  const newConversation = React.useCallback(() => {
+    setMessages([]);
+    setChatId(null);
+    setActiveId(null);
+    setInput("");
+    setError(null);
+    setFollowups([]);
+  }, []);
+
+  // The button has always advertised ⌘K; nothing listened for it until now.
+  React.useEffect(() => {
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();   // Chrome would otherwise jump to the address bar
+        newConversation();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [newConversation]);
 
   const authHdr = async () => {
     const { data: { session } } = await sb.auth.getSession();
@@ -228,27 +265,27 @@ function Chat({ go, theme, toggleTheme, user }) {
           <span>Wizardocs</span>
         </button>
 
-        <button className="new-chat" onClick={() => {
-          setMessages([]);
-          setChatId(null);
-          setActiveId(null);
-          setInput("");
-          setError(null);
-          setFollowups([]);
-        }}>
+        <button className="new-chat" onClick={newConversation}>
           <I.Plus size={14} />
           <span>New conversation</span>
-          <span className="kbd">⌘ K</span>
+          <span className="kbd">{MOD_KEY} K</span>
         </button>
 
         <div className="side-search">
           <I.Search size={13} />
-          <input placeholder="Search conversations" />
+          <input
+            placeholder="Search conversations"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {search && (
+            <button className="side-search-x" title="Clear search" onClick={() => setSearch("")}>✕</button>
+          )}
         </div>
 
         <div className="side-group">
           <div className="side-group-head mono">Recent</div>
-          {history.map((h, i) => (
+          {visibleChats.map(({ h, i }) => (
             <HistItem
               key={h.id}
               h={{ ...h, time: fmtTime(h.created_at) }}
@@ -267,6 +304,9 @@ function Chat({ go, theme, toggleTheme, user }) {
               }}
             />
           ))}
+          {search.trim() && visibleChats.length === 0 && (
+            <div className="side-no-match mono">No conversations match “{search.trim()}”</div>
+          )}
         </div>
 
         <div style={{ flex: 1 }} />
@@ -525,6 +565,16 @@ function Chat({ go, theme, toggleTheme, user }) {
         .side-search input { flex:1; background: transparent; border: 0; outline: none; font-size: 13px; color: var(--ink); }
         .side-search input::placeholder { color: var(--ink-4); }
         .side-search svg { color: var(--ink-3); }
+        .side-search-x {
+          border: 0; background: none; cursor: pointer; padding: 0 2px;
+          font-size: 11px; line-height: 1; color: var(--ink-4);
+          transition: color .15s;
+        }
+        .side-search-x:hover { color: var(--ink); }
+        .side-no-match {
+          font-size: 11.5px; color: var(--ink-4);
+          padding: 10px 6px; line-height: 1.5;
+        }
         .side-group { display:flex; flex-direction: column; gap: 2px; }
         .side-group-head { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-4); padding: 6px 6px; margin-top: 4px; }
         .side-lib { border-top: 1px solid var(--line); padding-top: 12px; }
@@ -740,7 +790,6 @@ function AssistantMessage({ m, mi, onHoverCite, onSave }) {
           <button className="aa" title="Copy" onClick={() => navigator.clipboard?.writeText(m.text)}>
             <I.Copy size={13} /><span>Copy</span>
           </button>
-          <button className="aa" title="Like"><I.Thumb size={13} /><span>Helpful</span></button>
           <button className="aa" title="Save answer (Pro)" onClick={onSave}><I.Bookmark size={13} /><span>Save</span></button>
           <div style={{ flex: 1 }} />
           <div className="mono src-pills">

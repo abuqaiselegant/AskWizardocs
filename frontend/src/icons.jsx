@@ -36,7 +36,6 @@ const I = {
   ),
   Check: (p) => <Icon {...p}><path d="m5 12 5 5 9-11"/></Icon>,
   Copy: (p) => <Icon {...p}><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></Icon>,
-  Thumb: (p) => <Icon {...p}><path d="M7 11v9H4v-9zM7 11l4-8a2 2 0 0 1 4 0v5h5a2 2 0 0 1 2 2.4l-1.6 7A2 2 0 0 1 16.4 20H7"/></Icon>,
   File: (p) => <Icon {...p}><path d="M7 3h8l5 5v13H7z"/><path d="M14 3v6h6"/></Icon>,
   Cite: (p) => <Icon {...p}><path d="M7 7h4v4a4 4 0 0 1-4 4M15 7h4v4a4 4 0 0 1-4 4"/></Icon>,
   Menu: (p) => <Icon {...p}><path d="M4 6h16M4 12h16M4 18h16"/></Icon>,

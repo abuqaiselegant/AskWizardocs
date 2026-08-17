@@ -51,9 +51,12 @@ class CreateChatRequest(BaseModel):
 
 
 class Source(BaseModel):
-    number: int
-    title:  str
-    url:    str
+    number:  int
+    title:   str
+    url:     str
+    source:  str = ""                # corpus slug: langchain | huggingface | chromadb
+    score:   float | None = None     # Cohere relevance; None when rerank fell back to RRF
+    snippet: str = ""                # first ~240 chars of the cited chunk
 
 
 class AskResponse(BaseModel):

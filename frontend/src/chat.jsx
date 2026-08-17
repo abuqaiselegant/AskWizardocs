@@ -11,6 +11,23 @@ const DOC_SOURCES = [
   { id: "chromadb",    label: "ChromaDB",    dot: "#8b5cf6", n: 485,  live: true  },
 ];
 
+// slug -> display name, so a card can say where it actually came from
+const SOURCE_LABEL = Object.fromEntries(DOC_SOURCES.map(s => [s.id, s.label]));
+
+// Shape one /ask (or stored sources_json) entry for display. Rows written
+// before the API returned source/score/snippet simply have no slug, no score
+// and no snippet — the UI omits those fields rather than inventing them.
+function toSource(s) {
+  return {
+    id:     s.number,
+    title:  s.title,
+    url:    s.url,
+    source: SOURCE_LABEL[s.source] || s.source || "",
+    score:  typeof s.score === "number" ? s.score : null,
+    chunk:  s.snippet || "",
+  };
+}
+
 function fmtTime(iso) {
   if (!iso) return "";
   const d = new Date(iso), now = new Date();
@@ -26,7 +43,6 @@ function Chat({ go, theme, toggleTheme, user }) {
   const [activeId, setActiveId]     = React.useState(null);
   const [chatId, setChatId]         = React.useState(null);
   const [messages, setMessages]     = React.useState([]);
-  const [allSources, setAllSources] = React.useState([]);
   const [input, setInput]           = React.useState("");
   const [streaming, setStreaming]   = React.useState(false);
   const [hoveredCite, setHoveredCite] = React.useState(null);
@@ -56,21 +72,18 @@ function Chat({ go, theme, toggleTheme, user }) {
     const res = await fetch(`${API_BASE}/chats/${id}/messages`, { headers: h });
     if (!res.ok) return;
     const msgs = await res.json();
-    const srcs = [];
-    msgs.forEach(m => (m.sources_json || []).forEach(s => srcs.push({
-      id: s.number, title: s.title, source: "LangChain", url: s.url, chunk: "", score: 0.8,
-    })));
-    setAllSources(prev => {
-      const byId = Object.fromEntries(prev.map(s => [s.id, s]));
-      srcs.forEach(s => { byId[s.id] = s; });
-      return Object.values(byId);
-    });
-    setMessages(msgs.map(m => ({
-      role: m.role, text: m.content, streamed: false,
-      sources: (m.sources_json || []).map(s => s.number),
-      at: new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      confidence: (m.sources_json?.length || 0) >= 4 ? 0.88 : (m.sources_json?.length || 0) >= 2 ? 0.78 : 0.62,
-    })));
+    setMessages(msgs.map(m => {
+      const srcs   = (m.sources_json || []).map(toSource);
+      const scored = srcs.map(s => s.score).filter(v => v !== null);
+      return {
+        role: m.role, text: m.content, streamed: false,
+        srcs,
+        at: new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        // Best real rerank score on the reopened answer. 0 hides the meter —
+        // better than the old guess based on how many sources were cited.
+        confidence: scored.length ? Math.max(...scored) : 0,
+      };
+    }));
   };
 
   // Load sidebar + profile on mount; open wd-open-chat if set, else most recent
@@ -126,7 +139,7 @@ function Chat({ go, theme, toggleTheme, user }) {
 
     const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const userMsg = { role: "user", text: q, at: now };
-    const stub = { role: "assistant", text: "", sources: [], confidence: 0, at: now, streamed: true };
+    const stub = { role: "assistant", text: "", srcs: [], confidence: 0, at: now, streamed: true };
     setMessages(ms => [...ms, userMsg, stub]);
     setStreaming(true);
 
@@ -164,25 +177,9 @@ function Chat({ go, theme, toggleTheme, user }) {
       }
 
       const data = await res.json();
-      // data = { answer: str, sources: [{number, title, url}] }
+      // data = { answer, sources: [{number, title, url, source, score, snippet}], confidence, followups }
 
-      const realSources = data.sources.map(s => ({
-        id: s.number,
-        title: s.title,
-        source: "LangChain",
-        url: s.url,
-        chunk: "",
-        score: 0.85,
-      }));
-
-      // Merge into allSources (dedupe by id)
-      setAllSources(prev => {
-        const byId = Object.fromEntries(prev.map(s => [s.id, s]));
-        realSources.forEach(s => { byId[s.id] = s; });
-        return Object.values(byId);
-      });
-
-      const sourceIds = data.sources.map(s => s.number);
+      const realSources = data.sources.map(toSource);
       const confidence = data.confidence || 0.78;
       const reply = data.answer;
       const followupSuggestions = data.followups || [];
@@ -193,14 +190,14 @@ function Chat({ go, theme, toggleTheme, user }) {
         i += 6;
         setMessages(ms => ms.map((m, idx) =>
           idx === ms.length - 1
-            ? { ...m, text: reply.slice(0, i), sources: sourceIds, confidence }
+            ? { ...m, text: reply.slice(0, i), srcs: realSources, confidence }
             : m
         ));
         if (i >= reply.length) {
           clearInterval(interval);
           setMessages(ms => ms.map((m, idx) =>
             idx === ms.length - 1
-              ? { ...m, text: reply, streamed: false, sources: sourceIds, confidence }
+              ? { ...m, text: reply, streamed: false, srcs: realSources, confidence }
               : m
           ));
           setQueriesUsed(prev => prev + 1);
@@ -214,7 +211,7 @@ function Chat({ go, theme, toggleTheme, user }) {
         : err.message;
       setMessages(ms => ms.map((m, idx) =>
         idx === ms.length - 1
-          ? { ...m, text: `⚠ ${errMsg}`, streamed: false, sources: [], confidence: 0 }
+          ? { ...m, text: `⚠ ${errMsg}`, streamed: false, srcs: [], confidence: 0 }
           : m
       ));
       setError(errMsg);
@@ -377,14 +374,14 @@ function Chat({ go, theme, toggleTheme, user }) {
               <React.Fragment key={i}>
                 <AssistantMessage
                   m={m}
-                  sources={allSources}
+                  mi={i}
                   onHoverCite={setHoveredCite}
                   onSave={() => showProToast("Saving answers is a Pro feature.")}
                 />
-                {!m.streamed && m.sources && m.sources.length > 0 && (
+                {!m.streamed && m.srcs?.length > 0 && (
                   <SourceCards
-                    ids={m.sources}
-                    all={allSources}
+                    cards={m.srcs}
+                    mi={i}
                     hovered={hoveredCite}
                     onHover={setHoveredCite}
                   />
@@ -715,8 +712,9 @@ function UserBubble({ m }) {
   );
 }
 
-function AssistantMessage({ m, sources, onHoverCite, onSave }) {
-  const body = m.text;
+function AssistantMessage({ m, mi, onHoverCite, onSave }) {
+  const body    = m.text;
+  const sources = m.srcs || [];
   return (
     <div className="asst">
       <div className="asst-head">
@@ -726,7 +724,7 @@ function AssistantMessage({ m, sources, onHoverCite, onSave }) {
         <div>
           <div className="asst-name">Wizardocs</div>
           <div className="mono asst-meta">
-            <I.Cite size={11} /> grounded · {m.sources?.length || 0} chunks retrieved
+            <I.Cite size={11} /> grounded · {sources.length} source{sources.length !== 1 ? "s" : ""} cited
           </div>
         </div>
         <div style={{ flex: 1 }} />
@@ -734,10 +732,10 @@ function AssistantMessage({ m, sources, onHoverCite, onSave }) {
       </div>
 
       <div className="asst-body">
-        <ReactMarkdown text={body} sources={sources} onHoverCite={onHoverCite} streamed={m.streamed}/>
+        <ReactMarkdown text={body} sources={sources} onHoverCite={onHoverCite} mi={mi} streamed={m.streamed}/>
       </div>
 
-      {!m.streamed && m.sources && m.sources.length > 0 && (
+      {!m.streamed && sources.length > 0 && (
         <div className="asst-actions">
           <button className="aa" title="Copy" onClick={() => navigator.clipboard?.writeText(m.text)}>
             <I.Copy size={13} /><span>Copy</span>
@@ -746,17 +744,13 @@ function AssistantMessage({ m, sources, onHoverCite, onSave }) {
           <button className="aa" title="Save answer (Pro)" onClick={onSave}><I.Bookmark size={13} /><span>Save</span></button>
           <div style={{ flex: 1 }} />
           <div className="mono src-pills">
-            {m.sources?.map(sid => {
-              const s = sources.find(x => x.id === sid);
-              if (!s) return null;
-              return (
-                <span key={sid} className="src-pill"
-                  onMouseEnter={() => onHoverCite(sid)}
-                  onMouseLeave={() => onHoverCite(null)}>
-                  <I.File size={10} /> {s.source}
-                </span>
-              );
-            })}
+            {sources.filter(s => s.source).map(s => (
+              <span key={s.id} className="src-pill"
+                onMouseEnter={() => onHoverCite(`${mi}:${s.id}`)}
+                onMouseLeave={() => onHoverCite(null)}>
+                <I.File size={10} /> {s.source}
+              </span>
+            ))}
           </div>
         </div>
       )}
@@ -817,7 +811,7 @@ function AssistantMessage({ m, sources, onHoverCite, onSave }) {
 }
 
 // ReactMarkdown — uses marked.lexer for block structure, keeps interactive citation pills inline
-function ReactMarkdown({ text, sources, onHoverCite, streamed }) {
+function ReactMarkdown({ text, sources, onHoverCite, mi, streamed }) {
   if (!text) return null;
 
   let tokens;
@@ -830,7 +824,7 @@ function ReactMarkdown({ text, sources, onHoverCite, streamed }) {
     const paras = text.split("\n\n");
     return paras.map((p, i) => (
       <p key={i}>
-        {renderWithCitations(p, sources, onHoverCite)}
+        {renderWithCitations(p, sources, onHoverCite, mi)}
         {streamed && i === paras.length - 1 && <span className="caret"/>}
       </p>
     ));
@@ -843,7 +837,7 @@ function ReactMarkdown({ text, sources, onHoverCite, streamed }) {
       case 'paragraph':
         return (
           <p key={i}>
-            {renderWithCitations(token.text, sources, onHoverCite)}
+            {renderWithCitations(token.text, sources, onHoverCite, mi)}
             {streamed && isLast && <span className="caret"/>}
           </p>
         );
@@ -861,25 +855,25 @@ function ReactMarkdown({ text, sources, onHoverCite, streamed }) {
         return (
           <ListTag key={i}>
             {token.items.map((item, j) => (
-              <li key={j}>{renderWithCitations(item.text, sources, onHoverCite)}</li>
+              <li key={j}>{renderWithCitations(item.text, sources, onHoverCite, mi)}</li>
             ))}
           </ListTag>
         );
       case 'blockquote':
-        return <blockquote key={i}>{renderWithCitations(token.text || '', sources, onHoverCite)}</blockquote>;
+        return <blockquote key={i}>{renderWithCitations(token.text || '', sources, onHoverCite, mi)}</blockquote>;
       case 'hr':
         return <hr key={i}/>;
       case 'space':
         return null;
       default:
         return token.raw
-          ? <p key={i}>{renderWithCitations(token.raw.trim(), sources, onHoverCite)}</p>
+          ? <p key={i}>{renderWithCitations(token.raw.trim(), sources, onHoverCite, mi)}</p>
           : null;
     }
   });
 }
 
-function renderWithCitations(text, sources, onHoverCite) {
+function renderWithCitations(text, sources, onHoverCite, mi) {
   const parts = [];
   let lastIdx = 0;
   const re = /\[(\d+)\]/g;
@@ -887,7 +881,7 @@ function renderWithCitations(text, sources, onHoverCite) {
   while ((match = re.exec(text)) !== null) {
     if (match.index > lastIdx) parts.push(text.slice(lastIdx, match.index));
     const n = parseInt(match[1]);
-    parts.push(<CitationPill key={match.index} n={n} sources={sources} onHoverCite={onHoverCite} />);
+    parts.push(<CitationPill key={match.index} n={n} sources={sources} onHoverCite={onHoverCite} mi={mi} />);
     lastIdx = match.index + match[0].length;
   }
   if (lastIdx < text.length) parts.push(text.slice(lastIdx));
@@ -903,14 +897,14 @@ function renderBold(text, key) {
   });
 }
 
-function CitationPill({ n, sources, onHoverCite }) {
+function CitationPill({ n, sources, onHoverCite, mi }) {
   const src = sources.find(s => s.id === n);
   const [open, setOpen] = React.useState(false);
   if (!src) return <span>[{n}]</span>;
   return (
     <span
       className="cit"
-      onMouseEnter={() => { setOpen(true); onHoverCite(n); }}
+      onMouseEnter={() => { setOpen(true); onHoverCite(`${mi}:${n}`); }}
       onMouseLeave={() => { setOpen(false); onHoverCite(null); }}
     >
       <sup>[{n}]</sup>
@@ -998,9 +992,8 @@ function SuggestedFollowups({ streaming, followups, onPick }) {
   );
 }
 
-function SourceCards({ ids, all, hovered, onHover }) {
-  const cards = ids.map(id => all.find(s => s.id === id)).filter(Boolean);
-  if (!cards.length) return null;
+function SourceCards({ cards, mi, hovered, onHover }) {
+  if (!cards?.length) return null;
   return (
     <div className="srccards">
       <div className="srccards-head">
@@ -1010,15 +1003,20 @@ function SourceCards({ ids, all, hovered, onHover }) {
       <div className="srccards-grid">
         {cards.map(s => (
           <a key={s.id} href={s.url.startsWith("http") ? s.url : `https://${s.url}`} target="_blank" rel="noreferrer"
-            className={"srccard " + (hovered === s.id ? "on" : "")}
-            onMouseEnter={() => onHover(s.id)} onMouseLeave={() => onHover(null)}>
+            className={"srccard " + (hovered === `${mi}:${s.id}` ? "on" : "")}
+            onMouseEnter={() => onHover(`${mi}:${s.id}`)} onMouseLeave={() => onHover(null)}>
             <div className="srccard-top">
               <span className="mono srccard-n">[{s.id}]</span>
-              <span className="mono srccard-source">{s.source}</span>
+              {s.source && <span className="mono srccard-source">{s.source}</span>}
               <span style={{ flex: 1 }} />
-              <span className="mono srccard-score" style={{ color: s.score > 0.85 ? "var(--good)" : "var(--warn)" }}>
-                match {s.score.toFixed(2)}
-              </span>
+              {/* Cohere relevance. Omitted entirely when the reranker fell back
+                  to RRF order, since there is no per-chunk score to show. */}
+              {s.score !== null && (
+                <span className="mono srccard-score"
+                  style={{ color: s.score >= 0.75 ? "var(--good)" : s.score >= 0.4 ? "var(--warn)" : "var(--danger)" }}>
+                  match {s.score.toFixed(2)}
+                </span>
+              )}
             </div>
             <div className="srccard-title">{s.title}</div>
             {s.chunk && <div className="srccard-chunk">{s.chunk}</div>}

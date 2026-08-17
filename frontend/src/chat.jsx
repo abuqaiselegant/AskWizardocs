@@ -1019,7 +1019,7 @@ function SourceCards({ cards, mi, hovered, onHover }) {
               )}
             </div>
             <div className="srccard-title">{s.title}</div>
-            {s.chunk && <div className="srccard-chunk">{s.chunk}</div>}
+            {s.chunk && <div className="srccard-chunk"><span>{s.chunk}</span></div>}
             <div className="srccard-url mono">
               <I.Arrow size={11} /> {s.url}
             </div>
@@ -1049,6 +1049,12 @@ function SourceCards({ cards, mi, hovered, onHover }) {
           font-size: 12.5px; line-height: 1.55; color: var(--ink-2);
           padding: 8px 10px; background: var(--bg); border-left: 2px solid var(--accent); border-radius: 2px;
           margin-bottom: 8px;
+        }
+        /* The clamp lives on an inner span, not on the padded box. overflow
+           clips at the *padding* edge, so clamping the padded element let the
+           top 8px of line 4 show through the bottom padding band under the "…".
+           The span has no padding, so 3 lines is exactly 3 lines. */
+        .srccard-chunk span {
           display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
         }
         .srccard-url {

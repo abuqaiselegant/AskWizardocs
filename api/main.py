@@ -24,7 +24,7 @@ app = FastAPI(title="AskMyDocs", version="1.0.0")
 # ── CORS ──────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins     = ["*"],
+    allow_origins     = ["https://ask-wizardocs.vercel.app", "http://localhost:5173"],
     allow_methods     = ["*"],
     allow_headers     = ["*"],
 )

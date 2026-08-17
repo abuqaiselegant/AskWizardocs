@@ -58,6 +58,18 @@ function Chat({ go, theme, toggleTheme, user }) {
   const [selectedSource, setSelectedSource] = React.useState(null);
   const [search, setSearch]         = React.useState("");
   const scrollRef = React.useRef(null);
+  const taRef     = React.useRef(null);
+
+  // Grow the composer with its content, up to the 200px the CSS already caps it
+  // at. Without this a multi-line question stayed in a one-row box and scrolled
+  // internally, hiding everything but the last line. Runs on input change so it
+  // also collapses back after send() clears the field.
+  React.useEffect(() => {
+    const el = taRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+  }, [input]);
 
   // Carry each chat's real position through the filter. The cap rule keys off
   // it — only the top 2 chats have messages in the DB — so renumbering by the
@@ -464,7 +476,12 @@ function Chat({ go, theme, toggleTheme, user }) {
           <div className="composer">
             <button className="comp-btn" title="Upload your own docs (Pro)" onClick={() => showProToast("Uploading your own docs is a Pro feature.")}><I.Upload size={16} /></button>
             <textarea
-              placeholder="Ask about LangChain, HuggingFace or ChromaDB — e.g. 'How do agents work?' or 'Fine-tune with PEFT?'"
+              ref={taRef}
+              // Short enough to sit on one line. The old placeholder ran to a
+              // second line that the one-row textarea clipped, and it named the
+              // three sources that the empty state and the footer line below
+              // already name.
+              placeholder="Ask a question — e.g. 'How do agents work?'"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}

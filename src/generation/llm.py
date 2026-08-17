@@ -30,10 +30,15 @@ def generate(query: str, context: str, history: list[dict] | None = None) -> str
 
 
 def generate_followups(question: str, answer: str) -> list[str]:
+    # "the same documentation this answer came from" rather than naming a library:
+    # the corpus is LangChain + HuggingFace + ChromaDB, and the source selector can
+    # pin retrieval to any one of them. Naming LangChain here steered followups at
+    # the wrong docs for the ~73% of chunks that aren't LangChain.
     prompt = (
         "Suggest exactly 3 short follow-up questions a user might ask next, "
         "based on this Q&A. Each must be specific, under 80 chars, and answerable "
-        "from LangChain documentation. Return only the 3 questions, one per line, no numbering.\n\n"
+        "from the same documentation this answer came from. "
+        "Return only the 3 questions, one per line, no numbering.\n\n"
         f"Q: {question}\nA: {answer[:400]}"
     )
     try:

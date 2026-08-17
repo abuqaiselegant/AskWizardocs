@@ -1,12 +1,26 @@
 # Runtime dependencies — what the serving path (api/ + src/generation + src/retrieval) imports.
 # Ingestion + evaluation deps live in requirements-dev.txt.
-fastapi
-uvicorn[standard]
-openai
-chromadb
-rank-bm25
-cohere
-python-dotenv
-requests
-PyJWT
-cryptography
+#
+# PINNED 2026-08-18 to the versions running in production at commit a1ce16e,
+# captured with `pip list` inside the live api container and verified serving
+# traffic. Unpinned, a rebuild resolves whatever is latest that day — and
+# AWS_RUNBOOK.md treats a rebuild as disaster recovery, so an unpinned file
+# turns "restore the box" into "hope nothing shipped a breaking change".
+# chromadb is the sharpest edge: chroma_db/ on disk was written by a specific
+# version and a newer one may not read it.
+#
+# To upgrade: bump a pin, rebuild, and confirm two things before trusting it —
+#   1. logs show `BM25 index ready (13280 chunks)`  (chromadb + corpus intact)
+#   2. a rerank call returns rerank_score            (cohere API shape intact)
+# Check 2 matters because reranker.py fails safe: a broken Cohere client is
+# indistinguishable from normal operation except for a warning in the logs.
+fastapi==0.141.1
+uvicorn[standard]==0.52.3
+openai==3.2.0
+chromadb==1.5.9
+rank-bm25==0.2.2
+cohere==7.0.8
+python-dotenv==1.2.3
+requests==2.34.2
+PyJWT==2.13.0
+cryptography==50.0.0

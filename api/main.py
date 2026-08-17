@@ -11,9 +11,11 @@ API only — the frontend is a separate Vite build deployed to Vercel.
 from dotenv import load_dotenv
 load_dotenv()
 
+from typing import Literal
+
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from api.auth import get_current_user
 from api import db
@@ -31,18 +33,21 @@ app.add_middleware(
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
+# Bounds keep one request from becoming an unbounded OpenAI bill, and stop a
+# client smuggling a "system" turn past the citation-only prompt. The frontend
+# sends at most 6 turns (chat.jsx: messages.slice(-6)).
 class Turn(BaseModel):
-    role: str
-    content: str
+    role:    Literal["user", "assistant"]
+    content: str = Field(max_length=8000)
 
 class AskRequest(BaseModel):
-    question: str
+    question: str = Field(max_length=2000)
     chat_id:  str | None = None
-    history:  list[Turn] = []
+    history:  list[Turn] = Field(default=[], max_length=6)
     source:   str | None = None
 
 class CreateChatRequest(BaseModel):
-    title: str
+    title: str = Field(max_length=200)
 
 
 class Source(BaseModel):
@@ -63,7 +68,10 @@ class AskResponse(BaseModel):
 def ask_endpoint(request: AskRequest, user_id: str = Depends(get_current_user)):
     if not request.question.strip():
         raise HTTPException(status_code=400, detail="question must not be empty")
-    if db.check_quota(user_id):
+    # Checked before the quota is spent and before any paid API call.
+    if request.chat_id and not db.chat_belongs_to_user(request.chat_id, user_id):
+        raise HTTPException(status_code=404, detail="Chat not found")
+    if db.reserve_query(user_id):
         raise HTTPException(status_code=402, detail="Monthly query limit reached. Upgrade to Pro.")
     history = [{"role": t.role, "content": t.content} for t in request.history]
     result = ask(request.question, history, source=request.source)
@@ -72,10 +80,6 @@ def ask_endpoint(request: AskRequest, user_id: str = Depends(get_current_user)):
             db.save_messages(request.chat_id, request.question, result["answer"], result["sources"])
         except Exception:
             pass
-    try:
-        db.increment_query_count(user_id)
-    except Exception:
-        pass
     return result
 
 
@@ -94,6 +98,9 @@ def list_chats(user_id: str = Depends(get_current_user)):
 
 @app.get("/chats/{chat_id}/messages")
 def get_messages(chat_id: str, user_id: str = Depends(get_current_user)):
+    # 404 rather than 403 — don't confirm that someone else's chat_id exists.
+    if not db.chat_belongs_to_user(chat_id, user_id):
+        raise HTTPException(status_code=404, detail="Chat not found")
     return db.get_chat_messages(chat_id)
 
 

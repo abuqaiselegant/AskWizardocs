@@ -139,3 +139,37 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+-- ============================================================
+-- consume_query — atomic monthly quota counter
+-- ============================================================
+-- api/db.py used to read the count, compare it to the limit, then write it
+-- back. Requests fired in parallel all read the same value before any write
+-- landed, so the 100/month cap could be walked past. The insert below does
+-- both halves in one statement; the row lock serialises concurrent callers.
+create or replace function public.consume_query(p_user_id uuid)
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  new_count int;
+begin
+  insert into public.query_usage (user_id, period_start, count)
+  values (p_user_id, date_trunc('month', now())::date, 1)
+  on conflict (user_id, period_start)
+  do update set count = query_usage.count + 1
+  returning count into new_count;
+
+  return new_count;
+end;
+$$;
+
+-- Called with the service-role key only; no direct client access.
+-- PUBLIC must be named explicitly: Postgres grants EXECUTE to PUBLIC by default,
+-- and anon/authenticated inherit it, so revoking from those two alone is a no-op.
+-- The function is SECURITY DEFINER and takes p_user_id as an argument, so a
+-- caller holding the anon key could otherwise burn any user's monthly quota.
+revoke execute on function public.consume_query(uuid) from public, anon, authenticated;
+grant  execute on function public.consume_query(uuid) to service_role;

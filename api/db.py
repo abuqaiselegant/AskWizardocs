@@ -87,6 +87,26 @@ def create_chat(user_id: str, title: str) -> str | None:
     return None
 
 
+def chat_belongs_to_user(chat_id: str, user_id: str) -> bool:
+    """True if chat_id sits in this user's workspace.
+
+    The service-role key bypasses RLS, so every endpoint that takes a chat_id
+    from the client must check ownership itself.
+    """
+    r = requests.get(_url("workspaces"), headers=_h(),
+                     params={"owner_id": f"eq.{user_id}", "select": "id",
+                             "order": "created_at.asc", "limit": "1"})
+    rows = r.json() if r.ok else []
+    if not rows:
+        return False
+
+    r = requests.get(_url("chats"), headers=_h(),
+                     params={"id": f"eq.{chat_id}",
+                             "workspace_id": f"eq.{rows[0]['id']}",
+                             "select": "id"})
+    return bool(r.ok and r.json())
+
+
 def get_chats(user_id: str) -> list:
     r = requests.get(_url("workspaces"), headers=_h(),
                      params={"owner_id": f"eq.{user_id}", "select": "id",
@@ -121,14 +141,42 @@ def _current_period() -> str:
 FREE_QUERY_LIMIT = 100
 
 
-def check_quota(user_id: str) -> bool:
-    """Returns True if this free user has hit or exceeded their monthly limit."""
+def _consume_query(user_id: str) -> int | None:
+    """Atomically add 1 to this month's counter, returning the new total.
+
+    None means the RPC is unavailable (migration not applied, or Supabase is
+    down) — callers fall back to the read-then-write path.
+    """
+    r = requests.post(f"{_base()}/rest/v1/rpc/consume_query", headers=_h(),
+                      json={"p_user_id": user_id})
+    if not r.ok:
+        return None
+    value = r.json()
+    return value if isinstance(value, int) else None
+
+
+def reserve_query(user_id: str) -> bool:
+    """Consume one query from this month's allowance. True = over the limit.
+
+    Counting and checking are a single statement (see consume_query() in
+    supabase_schema.sql) so parallel requests cannot each pass a stale check.
+    The cost is that the query is spent up front: a request that later fails
+    still counts. Paid plans are metered but never blocked.
+    """
     r = requests.get(_url("users_profile"), headers=_h(),
                      params={"id": f"eq.{user_id}", "select": "plan"})
     plan = r.json()[0]["plan"] if r.ok and r.json() else "free"
+
+    used = _consume_query(user_id)
+    if used is None:
+        # No atomic path available — degrade to the racy one rather than
+        # dropping the count entirely.
+        increment_query_count(user_id)
+        used = get_queries_used(user_id)
+
     if plan != "free":
         return False
-    return get_queries_used(user_id) >= FREE_QUERY_LIMIT
+    return used > FREE_QUERY_LIMIT
 
 
 def get_queries_used(user_id: str) -> int:

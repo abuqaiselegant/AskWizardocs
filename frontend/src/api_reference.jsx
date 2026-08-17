@@ -37,6 +37,10 @@ function ApiReference({ go, theme, toggleTheme, user }) {
     );
   }
 
+  // Verified against api/main.py + api/db.py on 2026-08-18. Every entry below
+  // was previously wrong: /ask took "query" not "question", /chats was shown
+  // wrapped in a {chats:[...]} object, /profile listed four fields that do not
+  // exist, and /health advertised a chunk count it never returns.
   const endpoints = [
     {
       id: "ask",
@@ -47,13 +51,13 @@ function ApiReference({ go, theme, toggleTheme, user }) {
       description: "Submit a question and receive a grounded answer with inline citations from the indexed documentation. Uses hybrid retrieval (BM25 + vector), Cohere reranking, and GPT-4o-mini generation.",
       request: {
         schema: [
-          { field: "query",   type: "string",          required: true,  desc: "The question to answer." },
-          { field: "source",  type: "string | null",   required: false, desc: 'Filter retrieval to one source. One of: "langchain", "huggingface", "chromadb". Omit or set null to search all sources.' },
-          { field: "history", type: "array",           required: false, desc: "Prior conversation turns. Each item is {role: \"user\" | \"assistant\", content: string}. Used for follow-up context enrichment." },
-          { field: "chat_id", type: "string | null",   required: false, desc: "UUID of an existing chat to persist this exchange to. Omit to create a new chat." },
+          { field: "question", type: "string",        required: true,  desc: "The question to answer. Max 2000 characters." },
+          { field: "source",   type: "string | null", required: false, desc: 'Filter retrieval to one source. One of: "langchain", "huggingface", "chromadb". Omit or set null to search all sources.' },
+          { field: "history",  type: "array",         required: false, desc: 'Prior conversation turns, max 6. Each item is {role: "user" | "assistant", content: string} with content up to 8000 characters. Any other role is rejected.' },
+          { field: "chat_id",  type: "string | null", required: false, desc: "UUID of an existing chat to persist this exchange to. Must belong to the caller. Omit to skip persistence." },
         ],
         example: `{
-  "query": "How do I use LoRA with PEFT for fine-tuning?",
+  "question": "How do I use LoRA with PEFT for fine-tuning?",
   "source": "huggingface",
   "history": [
     { "role": "user",      "content": "What is PEFT?" },
@@ -64,21 +68,21 @@ function ApiReference({ go, theme, toggleTheme, user }) {
       },
       response: {
         schema: [
-          { field: "answer",      type: "string",  desc: "Markdown-formatted answer with inline [N] citation markers." },
-          { field: "sources",     type: "array",   desc: "List of cited source chunks. Each: {index, title, url, source, score}." },
-          { field: "confidence",  type: "number",  desc: "Top chunk reranker score (0–1). Higher = more relevant retrieval." },
-          { field: "followups",   type: "array",   desc: "3 context-aware follow-up question strings." },
-          { field: "chat_id",     type: "string",  desc: "UUID of the chat this exchange was saved to." },
+          { field: "answer",     type: "string", desc: "Markdown-formatted answer with inline [N] citation markers." },
+          { field: "sources",    type: "array",  desc: "Cited chunks, in citation order. Each: {number, title, url, source, score, snippet}. score is null when the reranker fell back to RRF ordering." },
+          { field: "confidence", type: "number", desc: "Top chunk reranker score (0–1). Defaults to 0.78 when no rerank score is available." },
+          { field: "followups",  type: "array",  desc: "3 context-aware follow-up question strings. Empty array if generation failed." },
         ],
         example: `{
   "answer": "To use LoRA with PEFT, first install the library...[1][2]",
   "sources": [
     {
-      "index": 1,
+      "number": 1,
       "title": "PEFT LoRA Tutorial",
       "url": "https://github.com/huggingface/peft/blob/main/docs/source/conceptual_guides/lora.md",
       "source": "huggingface",
-      "score": 0.91
+      "score": 0.91,
+      "snippet": "LoRA decomposes the weight update into two low-rank matrices..."
     }
   ],
   "confidence": 0.91,
@@ -86,14 +90,39 @@ function ApiReference({ go, theme, toggleTheme, user }) {
     "What are the best LoRA rank values for LLaMA?",
     "How does QLoRA differ from standard LoRA?",
     "Can I apply LoRA to vision models?"
-  ],
-  "chat_id": "a1b2c3d4-..."
+  ]
 }`,
       },
       errors: [
+        { code: 400, desc: "Question is empty or whitespace only." },
         { code: 401, desc: "Missing or invalid Authorization header." },
         { code: 402, desc: "Free tier quota exceeded (100 queries/month)." },
-        { code: 422, desc: "Malformed request body." },
+        { code: 404, desc: "chat_id does not exist or does not belong to you." },
+        { code: 422, desc: "Malformed body, or a bound exceeded (question > 2000 chars, history > 6 turns, content > 8000 chars, role not user/assistant)." },
+      ],
+    },
+    {
+      id: "create-chat",
+      method: "POST",
+      path: "/chats",
+      auth: true,
+      summary: "Create a chat",
+      description: "Creates a new chat in the caller's workspace and returns its id. Enforces the storage cap: the chat falling to position 3 has its messages deleted, and chats beyond position 10 are removed entirely.",
+      request: {
+        schema: [
+          { field: "title", type: "string", required: true, desc: "Chat title. Max 200 characters; stored truncated to 80." },
+        ],
+        example: `{ "title": "How do I use LoRA with PEFT?" }`,
+      },
+      response: {
+        schema: [
+          { field: "chat_id", type: "string", desc: "UUID of the newly created chat." },
+        ],
+        example: `{ "chat_id": "a1b2c3d4-..." }`,
+      },
+      errors: [
+        { code: 401, desc: "Missing or invalid Authorization header." },
+        { code: 500, desc: "Workspace or chat could not be created." },
       ],
     },
     {
@@ -101,24 +130,72 @@ function ApiReference({ go, theme, toggleTheme, user }) {
       method: "GET",
       path: "/chats",
       auth: true,
-      summary: "List chat history",
-      description: "Returns the authenticated user's chat sessions, ordered by most recent. Each chat includes the stored messages.",
+      summary: "List chats",
+      description: "Returns the caller's 10 most recent chats, newest first. Titles only — messages are fetched separately, and are retained for the 2 most recent chats only.",
       request: { schema: [], example: null },
       response: {
         schema: [
-          { field: "chats", type: "array", desc: "List of chat objects: {id, title, messages, created_at, updated_at}." },
+          { field: "(array)", type: "array", desc: "A bare JSON array — not an object. Each item: {id, title, created_at}." },
         ],
-        example: `{
-  "chats": [
+        example: `[
+  {
+    "id": "a1b2c3d4-...",
+    "title": "How do I use LoRA with PEFT?",
+    "created_at": "2026-08-18T12:00:00Z"
+  }
+]`,
+      },
+      errors: [
+        { code: 401, desc: "Missing or invalid Authorization header." },
+      ],
+    },
     {
-      "id": "a1b2c3d4-...",
-      "title": "How do I use LoRA with PEFT?",
-      "messages": [...],
-      "created_at": "2026-05-01T12:00:00Z",
-      "updated_at": "2026-05-01T12:05:00Z"
-    }
-  ]
-}`,
+      id: "chat-messages",
+      method: "GET",
+      path: "/chats/{chat_id}/messages",
+      auth: true,
+      summary: "Get chat messages",
+      description: "Returns the stored messages for one chat, oldest first. Only the 2 most recent chats retain messages; older chats return an empty array.",
+      request: { schema: [], example: null },
+      response: {
+        schema: [
+          { field: "(array)", type: "array", desc: "A bare JSON array. Each item: {role, content, sources_json, created_at}. sources_json is null for user turns and holds the cited sources for assistant turns." },
+        ],
+        example: `[
+  {
+    "role": "user",
+    "content": "How do I use LoRA with PEFT?",
+    "sources_json": null,
+    "created_at": "2026-08-18T12:00:00Z"
+  },
+  {
+    "role": "assistant",
+    "content": "To use LoRA with PEFT...[1]",
+    "sources_json": [
+      { "number": 1, "title": "PEFT LoRA Tutorial", "url": "https://...", "source": "huggingface", "score": 0.91, "snippet": "LoRA decomposes..." }
+    ],
+    "created_at": "2026-08-18T12:00:04Z"
+  }
+]`,
+      },
+      errors: [
+        { code: 401, desc: "Missing or invalid Authorization header." },
+        { code: 404, desc: "Chat does not exist or does not belong to you." },
+      ],
+    },
+    {
+      id: "delete-chats",
+      method: "DELETE",
+      path: "/chats",
+      auth: true,
+      summary: "Clear all chats",
+      description: "Deletes every chat in the caller's workspace. Messages are removed by cascade. This cannot be undone.",
+      request: { schema: [], example: null },
+      response: {
+        schema: [
+          { field: "ok", type: "boolean", desc: "Always true when the request succeeded." },
+        ],
+        example: `{ "ok": true }`,
       },
       errors: [
         { code: 401, desc: "Missing or invalid Authorization header." },
@@ -130,24 +207,20 @@ function ApiReference({ go, theme, toggleTheme, user }) {
       path: "/profile",
       auth: true,
       summary: "Get user profile",
-      description: "Returns account info and usage statistics for the authenticated user.",
+      description: "Returns account info and usage for the authenticated user. Email and join date are not served here — the frontend reads those from the Supabase session.",
       request: { schema: [], example: null },
       response: {
         schema: [
-          { field: "id",             type: "string",  desc: "Supabase user UUID." },
-          { field: "email",          type: "string",  desc: "User email address." },
-          { field: "plan",           type: "string",  desc: 'Current plan. "free" or "pro".' },
-          { field: "queries_used",   type: "number",  desc: "Total queries used this calendar month." },
-          { field: "queries_limit",  type: "number",  desc: "Monthly query limit for the current plan." },
-          { field: "chats_count",    type: "number",  desc: "Total number of saved chat sessions." },
+          { field: "name",           type: "string | null", desc: "Display name from users_profile." },
+          { field: "plan",           type: "string",        desc: 'Current plan. "free" or "pro".' },
+          { field: "chunks_indexed", type: "number",        desc: "Chunks indexed by this workspace. Always 0 until bring-your-own-docs ships." },
+          { field: "queries_used",   type: "number",        desc: "Queries used in the current calendar month. The free-tier limit is 100." },
         ],
         example: `{
-  "id": "abc123",
-  "email": "you@example.com",
+  "name": "Ada Lovelace",
   "plan": "free",
-  "queries_used": 42,
-  "queries_limit": 100,
-  "chats_count": 8
+  "chunks_indexed": 0,
+  "queries_used": 42
 }`,
       },
       errors: [
@@ -160,17 +233,13 @@ function ApiReference({ go, theme, toggleTheme, user }) {
       path: "/health",
       auth: false,
       summary: "Health check",
-      description: "Lightweight liveness probe. Returns 200 with status info when the server is running.",
+      description: "Lightweight liveness probe. The only unauthenticated endpoint.",
       request: { schema: [], example: null },
       response: {
         schema: [
-          { field: "status",  type: "string",  desc: '"ok"' },
-          { field: "chunks",  type: "number",  desc: "Number of chunks loaded in the BM25 index." },
+          { field: "status", type: "string", desc: '"ok"' },
         ],
-        example: `{
-  "status": "ok",
-  "chunks": 13280
-}`,
+        example: `{ "status": "ok" }`,
       },
       errors: [],
     },
@@ -205,13 +274,13 @@ function ApiReference({ go, theme, toggleTheme, user }) {
             <span className="mono" style={{fontSize:12, color:"var(--accent)", letterSpacing:"0.08em"}}>API REFERENCE</span>
             <h1 style={{fontFamily:"var(--font-display)", fontSize:40, fontWeight:600, margin:"12px 0 8px", letterSpacing:"-0.02em"}}>Wizardocs API</h1>
             <p style={{color:"var(--ink-3)", fontSize:16, maxWidth:640, marginBottom:24}}>
-              REST API powering Wizardocs. All endpoints are served from the same origin as the frontend.
+              REST API powering Wizardocs. The API is a separate origin from this site — the frontend is served from Vercel and calls the backend cross-origin, which is why CORS is scoped to the Wizardocs domain.
             </p>
 
             <div className="api-info-row">
               <div className="api-info-chip">
                 <span className="mono" style={{fontSize:11, color:"var(--ink-3)"}}>Base URL</span>
-                <code>https://your-deployment.com</code>
+                <code>https://wizardocs.duckdns.org</code>
               </div>
               <div className="api-info-chip">
                 <span className="mono" style={{fontSize:11, color:"var(--ink-3)"}}>Auth</span>
@@ -224,7 +293,7 @@ function ApiReference({ go, theme, toggleTheme, user }) {
             </div>
 
             <div style={{marginTop:24, padding:16, background:"var(--surface)", border:"1px solid var(--line)", borderRadius:"var(--radius)", fontSize:14, color:"var(--ink-3)"}}>
-              <strong style={{color:"var(--ink)"}}>Authentication</strong> — All endpoints except <code className="api-inline-code">/health</code> require a Supabase JWT in the <code className="api-inline-code">Authorization</code> header. The token is obtained via Supabase OAuth (Google or GitHub) and is automatically included by the Wizardocs frontend.
+              <strong style={{color:"var(--ink)"}}>Authentication</strong> — All endpoints except <code className="api-inline-code">/health</code> require a Supabase JWT in the <code className="api-inline-code">Authorization</code> header. The token is obtained via Supabase Google OAuth (GitHub is not enabled) and is automatically included by the Wizardocs frontend.
             </div>
           </div>
 

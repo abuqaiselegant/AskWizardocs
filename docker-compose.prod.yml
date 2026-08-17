@@ -1,6 +1,7 @@
 # Production stack for a single VM (AWS Lightsail / EC2, Oracle, Hetzner, ...).
 # Two containers:
-#   - api   : the FastAPI backend (corpus + frontend baked into the image)
+#   - api   : the FastAPI backend (corpus baked into the image; the frontend
+#             ships to Vercel and is NOT in this image)
 #   - caddy : public entrypoint, auto-HTTPS, reverse-proxies to api
 #
 # Start:  docker compose -f docker-compose.prod.yml up -d --build
@@ -15,6 +16,12 @@ services:
       - .env                # OPENAI_API_KEY, COHERE_API_KEY, SUPABASE_* (never committed)
     expose:
       - "8000"              # internal only — not published to the host; Caddy is the only public door
+    # Cap the logs. Internet background scanners probe /.env, /.git/config and
+    # WordPress paths constantly; every one is a 404 line, and json-file logging
+    # is unbounded by default on a 25 GB disk.
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
 
   caddy:
     image: caddy:2
@@ -28,6 +35,9 @@ services:
       - caddy_config:/config
     depends_on:
       - api
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
 
 volumes:
   caddy_data:

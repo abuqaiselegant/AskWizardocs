@@ -6,8 +6,19 @@ __pycache__/
 *.pyc
 .env
 rough.ipynb
+
+# Local planning + audit notes — never committed.
+# The bare filenames below are unanchored, so they already matched
+# context/PLAN.md and context/PROJECT_SUMMARY.md, but NOT context/AWS_RUNBOOK.md,
+# which meant `git add -A` would have swept the runbook into the repo.
+# Ignoring the directory covers whatever else lands there.
+context/
 PLAN.md
 PROJECT_SUMMARY.md
+
+# macOS
+.DS_Store
+**/.DS_Store
 
 # Claude
 .claude/

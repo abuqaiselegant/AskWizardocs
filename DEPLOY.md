@@ -253,7 +253,7 @@ First run builds the image (a few minutes) and Caddy fetches the TLS cert for
 Verify the API is live:
 
 ```bash
-curl https://API_DOMAIN/health      # -> healthy
+curl https://API_DOMAIN/health      # -> {"status":"ok"}
 ```
 
 The backend is now done. The frontend (Steps 12–14) points at this URL.
@@ -270,7 +270,7 @@ Supabase dashboard → **Authentication → URL Configuration**:
 ## Step 11 — Verify (backend)
 
 ```bash
-curl https://API_DOMAIN/health      # -> healthy
+curl https://API_DOMAIN/health      # -> {"status":"ok"}
 ```
 
 Backend is live and API-only. Now the frontend.
@@ -403,7 +403,7 @@ Elastic IP. (Release the EIP or it bills when unattached.)
 - [ ] Code cloned; data + `.env` rsynced (`ls chroma_db && ls rag-dataset/data/processed/chunks.jsonl` on the VM)
 - [ ] `API_DOMAIN` set in `Caddyfile`
 - [ ] `docker compose -f docker-compose.prod.yml up -d --build` → Caddy got a cert
-- [ ] `curl https://API_DOMAIN/health` → healthy
+- [ ] `curl https://API_DOMAIN/health` → `{"status":"ok"}`
 
 **Frontend (Vercel)**
 - [ ] Vite migration done; `npm run build` succeeds locally

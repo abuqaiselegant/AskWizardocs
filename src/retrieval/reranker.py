@@ -36,6 +36,13 @@ cohere_client = cohere.Client(api_key=os.getenv("COHERE_API_KEY"))
 RERANK_MODEL  = "rerank-english-v3.0"  # best english reranker from Cohere
 TOP_N         = 5                       # how many to return after reranking
 
+# Startup banner, same style as bm25_retriever.py — so `docker compose logs api`
+# shows which retrieval path is active without having to ask for a question first.
+if os.getenv("COHERE_API_KEY"):
+    print(f"✅ Reranker ready (Cohere {RERANK_MODEL}, top {TOP_N})")
+else:
+    print("⚠️  Reranker disabled (no COHERE_API_KEY) — RRF order only")
+
 
 def rerank(query: str, chunks: list[dict]) -> list[dict]:
     """

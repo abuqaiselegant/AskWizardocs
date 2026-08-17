@@ -543,7 +543,10 @@ function Footer({ go = () => {} }) {
       { label: "Docs",       action: () => go("docs") },
       { label: "API",        action: () => go("api_reference") },
       { label: "Self-host",  href: "https://github.com/abuqaiselegant/AskWizardocs", external: true },
-      { label: "Evals",      action: () => go("chat") },
+      // Points at the evaluation code itself — the Ragas scorer, the CI gate and
+      // the golden Q&A set are all in the repo. There is no evals page in the
+      // app, and this used to navigate to /chat, which was simply wrong.
+      { label: "Evals",      href: "https://github.com/abuqaiselegant/AskWizardocs/tree/main/src/evaluation", external: true },
     ],
     Company: [
       { label: "About",     action: () => go("manifesto") },

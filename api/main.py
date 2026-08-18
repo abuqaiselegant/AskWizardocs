@@ -11,6 +11,7 @@ API only — the frontend is a separate Vite build deployed to Vercel.
 from dotenv import load_dotenv
 load_dotenv()
 
+import logging
 from typing import Literal
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -20,6 +21,8 @@ from pydantic import BaseModel, Field
 from api.auth import get_current_user
 from api import db
 from src.generation.generator import ask
+
+log = logging.getLogger(__name__)
 
 app = FastAPI(title="AskMyDocs", version="1.0.0")
 
@@ -62,7 +65,9 @@ class Source(BaseModel):
 class AskResponse(BaseModel):
     answer:     str
     sources:    list[Source]
-    confidence: float = 0.78
+    # Cohere score of the top chunk; None when the rerank fell back to RRF order
+    # and there is no real score — the UI hides the meter rather than guessing.
+    confidence: float | None = None
     followups:  list[str] = []
 
 
@@ -82,7 +87,11 @@ def ask_endpoint(request: AskRequest, user_id: str = Depends(get_current_user)):
         try:
             db.save_messages(request.chat_id, request.question, result["answer"], result["sources"])
         except Exception:
-            pass
+            # The answer is already paid for and still worth returning, so this
+            # stays non-fatal — but it used to be a bare `pass`, which meant a
+            # chat could silently stop persisting with nothing in the log to
+            # explain it. exc_info so the Supabase error is recoverable.
+            log.warning("save_messages failed for chat %s", request.chat_id, exc_info=True)
     return result
 
 

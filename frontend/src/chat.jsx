@@ -128,9 +128,9 @@ function Chat({ go, theme, toggleTheme, user }) {
         role: m.role, text: m.content, streamed: false,
         srcs,
         at: new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        // Best real rerank score on the reopened answer. 0 hides the meter —
+        // Best real rerank score on the reopened answer. null hides the meter —
         // better than the old guess based on how many sources were cited.
-        confidence: scored.length ? Math.max(...scored) : 0,
+        confidence: scored.length ? Math.max(...scored) : null,
       };
     }));
   };
@@ -188,7 +188,7 @@ function Chat({ go, theme, toggleTheme, user }) {
 
     const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const userMsg = { role: "user", text: q, at: now };
-    const stub = { role: "assistant", text: "", srcs: [], confidence: 0, at: now, streamed: true };
+    const stub = { role: "assistant", text: "", srcs: [], confidence: null, at: now, streamed: true };
     setMessages(ms => [...ms, userMsg, stub]);
     setStreaming(true);
 
@@ -229,7 +229,10 @@ function Chat({ go, theme, toggleTheme, user }) {
       // data = { answer, sources: [{number, title, url, source, score, snippet}], confidence, followups }
 
       const realSources = data.sources.map(toSource);
-      const confidence = data.confidence || 0.78;
+      // null when the reranker fell back to RRF order and reported no score.
+      // `|| 0.78` used to turn that into a "medium · 78%" meter the pipeline
+      // never measured — the same fiction the source-card scores dropped.
+      const confidence = typeof data.confidence === "number" ? data.confidence : null;
       const reply = data.answer;
       const followupSuggestions = data.followups || [];
 
@@ -260,7 +263,7 @@ function Chat({ go, theme, toggleTheme, user }) {
         : err.message;
       setMessages(ms => ms.map((m, idx) =>
         idx === ms.length - 1
-          ? { ...m, text: `⚠ ${errMsg}`, streamed: false, srcs: [], confidence: 0 }
+          ? { ...m, text: `⚠ ${errMsg}`, streamed: false, srcs: [], confidence: null }
           : m
       ));
       setError(errMsg);
@@ -795,7 +798,7 @@ function AssistantMessage({ m, mi, onHoverCite, onSave }) {
           </div>
         </div>
         <div style={{ flex: 1 }} />
-        {m.confidence > 0 && <ConfidenceMeter value={m.confidence} />}
+        {typeof m.confidence === "number" && <ConfidenceMeter value={m.confidence} />}
       </div>
 
       <div className="asst-body">
@@ -1006,7 +1009,9 @@ function CitationPill({ n, sources, onHoverCite, mi }) {
   );
 }
 
-function ConfidenceMeter({ value = 0.85 }) {
+// No default value on purpose: a meter with nothing to show must not render
+// at all, so every caller has to pass a real score.
+function ConfidenceMeter({ value }) {
   const pct = Math.round(value * 100);
   const label = pct >= 80 ? "high" : pct >= 60 ? "medium" : "low";
   const color = pct >= 80 ? "var(--good)" : pct >= 60 ? "var(--warn)" : "var(--danger)";

@@ -12,8 +12,13 @@ def generate(query: str, chunks: list[dict], history: list[dict] | None = None) 
     context = format_context(chunks)
     answer  = llm_generate(query, context, history)
     sources = extract_citations(answer, chunks)
-    # Use top reranked chunk's score as confidence (reranker returns 0-1)
-    confidence = round(chunks[0].get("rerank_score", 0.78), 4) if chunks else 0.62
+    # Confidence is the top reranked chunk's score (reranker returns 0-1).
+    # None when there is no score to report — no chunks, or the Cohere fallback
+    # returned RRF order without one. The old default of 0.78 rendered as a
+    # "medium · 78%" meter that was invented, which is the same thing the
+    # per-source scores stopped doing when they became nullable (parser.py).
+    top_score  = chunks[0].get("rerank_score") if chunks else None
+    confidence = round(top_score, 4) if top_score is not None else None
     return {"answer": answer, "sources": sources, "confidence": confidence}
 
 

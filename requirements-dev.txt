@@ -12,5 +12,9 @@ tiktoken
 ragas
 langchain-openai
 
+# Tests (tests/) — pure-function suite, needs no keys and no corpus.
+# Run from the repo root so `src.` resolves: pytest tests/ -q
+pytest
+
 # Future: file uploads for bring-your-own-docs (not used yet)
 python-multipart

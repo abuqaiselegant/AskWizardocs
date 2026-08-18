@@ -1,3 +1,14 @@
+"""
+02 — Download each URL to disk.
+
+Step 2 of the LangChain HTML pipeline. Reads the URL list from 01 and saves each
+page as page_N.html alongside a page_N.url recording where it came from, since
+the filename cannot.
+
+Resumable: a page whose .html already exists is skipped, so an interrupted run
+can simply be restarted rather than re-fetching 700+ pages.
+"""
+
 import requests
 import time
 import os

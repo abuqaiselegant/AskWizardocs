@@ -1,3 +1,15 @@
+"""
+04 — Documents → overlapping chunks.
+
+Step 4 of the LangChain HTML pipeline. Splits each document from docs.jsonl into
+CHUNK_SIZE-character windows overlapping by OVERLAP, so a passage straddling a
+boundary still appears whole in one of them, and writes chunks.jsonl.
+
+Records are built by src.ingestion.chunk_schema.make_chunk() rather than
+assembled here — one writer owns the chunk shape and the chunk_id format, because
+13,280 chunks are already embedded under it.
+"""
+
 import os
 import json
 import sys
@@ -9,7 +21,7 @@ from src.ingestion.chunk_schema import make_chunk   # noqa: E402
 input_file = "rag-dataset/data/processed/docs.jsonl"
 output_file = "rag-dataset/data/processed/chunks.jsonl"
 
-os.makedirs("data/processed", exist_ok=True)
+os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
 CHUNK_SIZE = 1200
 OVERLAP = 200

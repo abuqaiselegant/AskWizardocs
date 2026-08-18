@@ -1,3 +1,17 @@
+"""
+03 — Raw HTML → clean documents.
+
+Step 3 of the LangChain HTML pipeline. Runs each downloaded page through
+trafilatura, which strips navigation, sidebars and footers and leaves the article
+text, and takes the title from the <title> tag. Writes one JSON object per
+document to rag-dataset/data/processed/docs.jsonl.
+
+Pages yielding under MIN_TEXT_LEN characters are dropped — mostly redirects and
+index stubs, which add noise to retrieval without adding anything to answer from.
+
+Incremental: URLs already present in docs.jsonl are skipped on a re-run.
+"""
+
 import os
 import json
 import trafilatura

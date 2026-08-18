@@ -1,3 +1,13 @@
+"""
+01 — Sitemap → URL list.
+
+Step 1 of the LangChain HTML pipeline (01 → 02 → 03 → 04 → 05). Fetches
+docs.langchain.com/sitemap.xml, pulls every <loc> out of it, and writes one URL
+per line to rag-dataset/data/sources/langchain_urls.txt for 02 to download.
+
+Set LIMIT to a small number to try the pipeline on a handful of pages first.
+"""
+
 import requests
 import xml.etree.ElementTree as ET
 

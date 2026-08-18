@@ -4,7 +4,6 @@ Cap rules: max 10 chats per user; messages kept only for the 2 most recent chats
 """
 
 import os
-from collections import Counter
 
 import requests
 from dotenv import load_dotenv

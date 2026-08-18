@@ -70,7 +70,7 @@ function ApiReference({ go, theme, toggleTheme, user }) {
         schema: [
           { field: "answer",     type: "string", desc: "Markdown-formatted answer with inline [N] citation markers." },
           { field: "sources",    type: "array",  desc: "Cited chunks, in citation order. Each: {number, title, url, source, score, snippet}. score is null when the reranker fell back to RRF ordering." },
-          { field: "confidence", type: "number", desc: "Top chunk reranker score (0–1). Defaults to 0.78 when no rerank score is available." },
+          { field: "confidence", type: "number | null", desc: "Top chunk reranker score (0–1). null when the reranker fell back to RRF ordering, or nothing was retrieved — same condition as a null score above." },
           { field: "followups",  type: "array",  desc: "3 context-aware follow-up question strings. Empty array if generation failed." },
         ],
         example: `{

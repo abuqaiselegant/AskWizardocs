@@ -1,3 +1,20 @@
+"""
+bm25_retriever.py — Keyword retrieval over the chunk corpus using BM25.
+
+What it does:
+    Tokenises every chunk once at import → scores the query against all of them
+    → returns the top-k, optionally restricted to a single source.
+
+Why it sits alongside vector search:
+    BM25 matches literal terms, so it finds exact API names, flags and error
+    strings that an embedding will happily paraphrase away. hybrid_retriever.py
+    fuses the two, which is why this exposes the same search() shape as
+    vector_retriever.py.
+
+The index lives in module scope: it is built once on import and every search()
+reuses it. Rebuilding per request would re-tokenise all 13,280 chunks.
+"""
+
 import json
 from rank_bm25 import BM25Okapi
 
@@ -62,7 +79,7 @@ def search(query: str, k: int = 10, source: str | None = None) -> list[dict]:
 # This runs once. Every call to search() reuses the same index.
 print("Building BM25 index...")
 chunks = load_chunks(CHUNKS_FILE)
-bm25_index = BM25Okapi([tokenize(c["text"]) for c in chunks])
+bm25_index = build_bm25_index(chunks)
 print(f"✅ BM25 index ready ({len(chunks)} chunks)")
 
 

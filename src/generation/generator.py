@@ -93,8 +93,6 @@ def ask_stream(query: str, history: list[dict] | None = None, source: str | None
 
 # ── Quick test ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    from src.retrieval.hybrid_retriever import search_with_rerank
-
     query   = "How do LangChain agents work?"
     chunks  = search_with_rerank(query)
 

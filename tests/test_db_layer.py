@@ -225,19 +225,68 @@ def test_the_usage_row_is_seeded_against_the_new_workspace(http):
     assert http.of("chunk_usage")[0].json == {"workspace_id": "ws-new"}
 
 
-def test_a_failed_workspace_insert_returns_none_and_seeds_nothing(http):
+def test_none_only_when_the_insert_fails_and_the_re_read_finds_nothing(http):
+    # Both halves down: nothing to return and nothing to seed. The callers turn
+    # this into a 500, which is the honest answer when Supabase is unreachable.
     http.reply("workspaces", [])
+    http.reply("workspaces", None, ok=False)
     http.reply("workspaces", None, ok=False)
     assert db.get_or_create_workspace("u") is None
     assert http.of("chunk_usage") == []
 
 
-def test_an_insert_that_returns_no_row_is_also_none(http):
-    # Prefer: return=representation and an empty body means the row is not
-    # there to use, whatever the status code said.
+def test_an_insert_that_returns_no_row_falls_through_to_the_re_read(http):
+    # Prefer: return=representation with an empty body means the row is not
+    # there to use, whatever the status code said — same recovery either way.
+    http.reply("workspaces", [])
     http.reply("workspaces", [])
     http.reply("workspaces", [])
     assert db.get_or_create_workspace("u") is None
+
+
+# ── the duplicate-workspace bug ───────────────────────────────────────────────
+# owner_id is unique in supabase_schema.sql, so the second insert is now a 409
+# rather than a second workspace. These cover the half that recovers from it.
+
+def test_a_failed_lookup_resolves_to_the_existing_workspace_not_a_second_one(http):
+    # The bug: `rows = r.json() if r.ok else []` reads a 500 as "no workspace",
+    # so db.py created another one — and every chat made into it was unreachable,
+    # because chat_belongs_to_user() and begin_ask() both resolve a user to their
+    # OLDEST workspace. get_chats() still listed those chats (it joins on
+    # owner_id, spanning both), so the chat was visible and permanently 404.
+    http.reply("workspaces", None, ok=False)          # GET blips
+    http.reply("workspaces", None, ok=False)          # POST rejected: owner_id unique
+    http.reply("workspaces", [{"id": "ws-1"}])        # re-read finds the original
+    assert db.get_or_create_workspace("u") == "ws-1"
+
+
+def test_the_tab_that_loses_the_creation_race_gets_the_winners_workspace(http):
+    # Two tabs on a genuinely new user: both GETs legitimately find nothing, both
+    # insert, one loses. Before the constraint that produced two workspaces with
+    # no error; without this re-read it would produce a 500 on a working account.
+    http.reply("workspaces", [])
+    http.reply("workspaces", None, ok=False)
+    http.reply("workspaces", [{"id": "ws-winner"}])
+    assert db.get_or_create_workspace("u") == "ws-winner"
+
+
+def test_the_recovery_re_reads_and_does_not_insert_again(http):
+    # A retry loop against a unique constraint is just a slower 409.
+    http.reply("workspaces", [])
+    http.reply("workspaces", None, ok=False)
+    http.reply("workspaces", [{"id": "ws-1"}])
+    db.get_or_create_workspace("u")
+    assert [c.method for c in http.of("workspaces")] == ["GET", "POST", "GET"]
+
+
+def test_the_recovered_workspace_is_not_re_seeded_with_a_usage_row(http):
+    # It already has one from whoever created it. Seeding again is harmless
+    # (ignore-duplicates) but it is a wasted round trip on every recovery.
+    http.reply("workspaces", [])
+    http.reply("workspaces", None, ok=False)
+    http.reply("workspaces", [{"id": "ws-1"}])
+    db.get_or_create_workspace("u")
+    assert http.of("chunk_usage") == []
 
 
 def test_first_workspace_reads_without_creating(http):

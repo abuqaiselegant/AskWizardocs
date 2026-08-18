@@ -50,7 +50,13 @@ def get_or_create_workspace(user_id: str) -> str | None:
     r = requests.post(_url("workspaces"), headers=_h(Prefer="return=representation"),
                       json={"owner_id": user_id, "name": "My workspace"})
     if not (r.ok and r.json()):
-        return None
+        # owner_id is unique, so the usual reason this insert fails is that the
+        # workspace already exists and the GET above did not see it: it returned
+        # a 500 (read here as "none"), or another tab created one in between.
+        # Re-read rather than reporting no workspace — creating a second one is
+        # what stranded chats before the constraint existed, and returning None
+        # would 500 a user who has a perfectly good workspace.
+        return _first_workspace(user_id)
     ws_id = r.json()[0]["id"]
     requests.post(_url("chunk_usage"), headers=_h(Prefer="resolution=ignore-duplicates,return=minimal"),
                   json={"workspace_id": ws_id})

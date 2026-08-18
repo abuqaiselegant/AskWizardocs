@@ -15,12 +15,60 @@ create table if not exists public.users_profile (
 
 -- 2. workspaces
 --    One workspace auto-created per user on signup (user = workspace for now).
+--
+--    owner_id is unique, because "one per user" is not a convention here — it is
+--    what every lookup in the system already assumes. db.py resolves a user to a
+--    workspace with `order by created_at asc limit 1` in three places, and
+--    begin_ask() below does the same in SQL. A second row for the same owner is
+--    therefore unreachable: chats created in it resolve to the *older* workspace
+--    on every ownership check, so /ask and /chats/{id}/messages answer 404 for a
+--    chat that get_chats() still lists (it joins on owner_id, spanning both).
+--
+--    get_or_create_workspace() could create that second row from one failed GET:
+--    a 500 from PostgREST reads as "this user has no workspace" and it inserts.
+--    Two tabs racing on a genuinely new user did the same. This constraint is
+--    what makes both of those a rejected insert instead of stranded data.
+--
+--    When Team workspaces arrive, drop this — and note that the three `limit 1`
+--    lookups have to change with it either way.
 create table if not exists public.workspaces (
   id          uuid primary key default gen_random_uuid(),
-  owner_id    uuid not null references public.users_profile (id) on delete cascade,
+  owner_id    uuid not null unique references public.users_profile (id) on delete cascade,
   name        text not null default 'My workspace',
   created_at  timestamptz not null default now()
 );
+
+-- The line above only covers a fresh database: `create table if not exists` is a
+-- no-op on one that already has the table, so an existing project needs the
+-- constraint added. Idempotent, like the rest of this file — safe to re-run.
+--
+-- This FAILS, loudly, if duplicate workspaces already exist. That is the point:
+-- they are the bug, and which one to keep is a decision, not a default. Find
+-- them with the query below; the keeper is the OLDEST, because that is the one
+-- every existing lookup already resolves to.
+--
+--   select owner_id, count(*), array_agg(id order by created_at)
+--     from public.workspaces group by owner_id having count(*) > 1;
+--
+-- Re-point the strays' chats at the keeper, then delete the strays. Re-pointing
+-- first is what makes the chats reachable again instead of cascade-deleted:
+--
+--   with keep as (
+--     select distinct on (owner_id) owner_id, id
+--       from public.workspaces order by owner_id, created_at asc)
+--   update public.chats c set workspace_id = k.id
+--     from public.workspaces w join keep k on k.owner_id = w.owner_id
+--    where c.workspace_id = w.id and w.id <> k.id;
+--
+--   delete from public.workspaces w where w.id not in (
+--     select distinct on (owner_id) id
+--       from public.workspaces order by owner_id, created_at asc);
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'workspaces_owner_id_key') then
+    alter table public.workspaces add constraint workspaces_owner_id_key unique (owner_id);
+  end if;
+end $$;
 
 -- 3. chats
 create table if not exists public.chats (

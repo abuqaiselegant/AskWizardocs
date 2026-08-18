@@ -1,4 +1,4 @@
-// Auth page — Google + GitHub OAuth only
+// Auth page — Google OAuth only
 import React from "react";
 import { I } from "./icons.jsx";
 import { sb } from "./supabase.js";
@@ -13,7 +13,7 @@ function AuthShell({ go }) {
         </button>
 
         <div className="auth-form-wrap">
-          <OAuthPanel go={go}/>
+          <OAuthPanel/>
         </div>
 
         <div className="auth-foot mono">
@@ -60,8 +60,8 @@ function AuthShell({ go }) {
   );
 }
 
-function OAuthPanel({ go }) {
-  const [loading, setLoading] = React.useState(null); // "google" | "github" | null
+function OAuthPanel() {
+  const [loading, setLoading] = React.useState(null); // "google" | null
   const [error, setError]     = React.useState(null);
 
   const signIn = async (provider) => {

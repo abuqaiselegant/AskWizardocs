@@ -86,8 +86,7 @@ function App() {
   return (
     <div>
       {page === "landing"       && <Landing      go={go} theme={theme} toggleTheme={toggleTheme} user={user}/>}
-      {page === "signin"        && <AuthShell    go={go}/>}
-      {page === "signup"        && <AuthShell    go={go}/>}
+      {["signin", "signup"].includes(page) && <AuthShell go={go}/>}
       {page === "chat"          && <Chat         go={go} theme={theme} toggleTheme={toggleTheme} user={user}/>}
       {page === "profile"       && <Profile      go={go} theme={theme} toggleTheme={toggleTheme} user={user}/>}
       {page === "docs"          && <Docs         go={go} theme={theme} toggleTheme={toggleTheme} user={user}/>}

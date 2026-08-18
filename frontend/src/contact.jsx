@@ -4,14 +4,13 @@ import { Nav, Footer } from "./shared.jsx";
 
 function Contact({ go, theme, toggleTheme, user }) {
   const [form, setForm] = React.useState({ name: "", email: "", subject: "", message: "" });
-  const [status, setStatus] = React.useState(null); // null | "sending" | "sent" | "error"
+  const [status, setStatus] = React.useState(null); // null | "sent"
 
   const set = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }));
 
   const submit = async (e) => {
     e.preventDefault();
     if (!form.name || !form.email || !form.message) return;
-    setStatus("sending");
 
     // mailto fallback — opens default email client with pre-filled content
     // Replace with a backend endpoint or Formspree when ready
@@ -131,10 +130,10 @@ function Contact({ go, theme, toggleTheme, user }) {
               <button
                 type="submit"
                 className="btn primary"
-                disabled={status === "sending" || !form.name || !form.email || !form.message}
+                disabled={!form.name || !form.email || !form.message}
                 style={{width:"100%", justifyContent:"center"}}
               >
-                {status === "sending" ? "Opening email client…" : "Send message"}
+                Send message
               </button>
 
               <p style={{fontSize:12, color:"var(--ink-4)", marginTop:12, textAlign:"center", fontFamily:"var(--font-mono)"}}>

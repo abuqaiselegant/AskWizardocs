@@ -69,13 +69,10 @@ def fetch_sitemap_urls(sitemap_url: str, url_prefix: str | None) -> list[str]:
     # Handle sitemap index (sitemap of sitemaps)
     sub_sitemaps = root.findall("sm:sitemap/sm:loc", ns)
     if sub_sitemaps:
+        # url_prefix filters the page URLs below, not the index entries here.
         all_urls = []
         for loc in sub_sitemaps:
-            sub_url = loc.text.strip()
-            if url_prefix and not sub_url.startswith(url_prefix):
-                all_urls.extend(fetch_sitemap_urls(sub_url, url_prefix))
-            else:
-                all_urls.extend(fetch_sitemap_urls(sub_url, url_prefix))
+            all_urls.extend(fetch_sitemap_urls(loc.text.strip(), url_prefix))
         return all_urls
 
     urls = []

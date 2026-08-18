@@ -6,7 +6,6 @@
 trafilatura
 beautifulsoup4
 lxml
-tiktoken
 
 # Evaluation (src/evaluation/) — pulls the heavy datasets/pandas/pyarrow stack
 ragas

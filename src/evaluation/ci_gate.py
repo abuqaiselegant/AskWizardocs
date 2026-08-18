@@ -17,7 +17,7 @@ SCORES_FILE             = Path("src/evaluation/results.json")
 FAITHFULNESS_THRESHOLD  = 0.85
 
 
-def check() -> bool:
+def check() -> None:
     if not SCORES_FILE.exists():
         print(f"❌ {SCORES_FILE} not found — run scorer.py first.")
         sys.exit(1)
@@ -36,7 +36,6 @@ def check() -> bool:
         sys.exit(1)
 
     print(f"✅ PASSED — faithfulness {faithfulness:.4f} >= {FAITHFULNESS_THRESHOLD}")
-    return True
 
 
 if __name__ == "__main__":

@@ -99,7 +99,6 @@ def fetch_raw(repo: str, path: str, branch: str = "main") -> str | None:
 
 FRONTMATTER_RE = re.compile(r"^---\n.*?\n---\n", re.DOTALL)
 MDCOMMENT_RE   = re.compile(r"<!--.*?-->", re.DOTALL)
-CODEBLOCK_RE   = re.compile(r"```.*?```", re.DOTALL)
 
 
 def clean_markdown(text: str) -> str:
@@ -256,10 +255,6 @@ def main():
             f.write("\n")
         for c in all_new_chunks:
             f.write(json.dumps(c, ensure_ascii=False) + "\n")
-
-    hf_total = sum(1 for c in all_new_chunks) + sum(
-        1 for cid in known_ids if cid.startswith("hf_") or cid.startswith("huggingface")
-    )
 
     print(f"\n✅ Done: {stored} new HuggingFace chunks indexed")
     print(f"   Total chunks in collection: {collection.count()}")

@@ -6,9 +6,9 @@ import { sb } from "./supabase.js";
 import { API_BASE } from "./config.js";
 
 const DOC_SOURCES = [
-  { id: "langchain",   label: "LangChain",   dot: "#2ca190", n: 3235, live: true  },
-  { id: "huggingface", label: "HuggingFace", dot: "#ff9d00", n: 9560, live: true  },
-  { id: "chromadb",    label: "ChromaDB",    dot: "#8b5cf6", n: 485,  live: true  },
+  { id: "langchain",   label: "LangChain",   dot: "#2ca190", n: 3235 },
+  { id: "huggingface", label: "HuggingFace", dot: "#ff9d00", n: 9560 },
+  { id: "chromadb",    label: "ChromaDB",    dot: "#8b5cf6", n: 485  },
 ];
 
 // The shortcut binds Cmd on Mac and Ctrl elsewhere, so the badge has to say
@@ -449,24 +449,16 @@ function Chat({ go, theme, toggleTheme, user }) {
               <span>All sources</span>
             </button>
             {DOC_SOURCES.map(s => (
-              s.live ? (
-                <button
-                  key={s.id}
-                  className={"docchip " + (selectedSource === s.id ? "on" : "")}
-                  onClick={() => setSelectedSource(prev => prev === s.id ? null : s.id)}
-                  title={`${s.n.toLocaleString()} indexed chunks — click to filter`}
-                >
-                  <span className="docchip-dot" style={{ background: s.dot }} />
-                  <span>{s.label}</span>
-                  <span className="mono docchip-n">{(s.n / 1000).toFixed(1)}k</span>
-                </button>
-              ) : (
-                <span key={s.id} className="docchip docchip-soon" title="Run scripts/ingest_source.py to index this source">
-                  <span className="docchip-dot" style={{ background: s.dot, opacity: 0.4 }} />
-                  <span>{s.label}</span>
-                  <span className="mono docchip-n" style={{ color: "var(--ink-4)" }}>soon</span>
-                </span>
-              )
+              <button
+                key={s.id}
+                className={"docchip " + (selectedSource === s.id ? "on" : "")}
+                onClick={() => setSelectedSource(prev => prev === s.id ? null : s.id)}
+                title={`${s.n.toLocaleString()} indexed chunks — click to filter`}
+              >
+                <span className="docchip-dot" style={{ background: s.dot }} />
+                <span>{s.label}</span>
+                <span className="mono docchip-n">{(s.n / 1000).toFixed(1)}k</span>
+              </button>
             ))}
           </div>
           <div style={{ flex: 1 }} />
@@ -609,7 +601,6 @@ function Chat({ go, theme, toggleTheme, user }) {
           font-size: 12px; color: var(--ink-3);
         }
         .docchip.on { background: var(--surface-2); color: var(--ink); border-color: var(--line-2); }
-        .docchip-soon { cursor: default; opacity: 0.55; }
         .docchip-dot { width: 7px; height: 7px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
         .docchip-n { font-size: 10px; color: var(--ink-4); letter-spacing: 0.04em; }
 
@@ -1091,7 +1082,7 @@ function ConfidenceMeter({ value }) {
     <div className="conf">
       <div className="conf-bars">
         {[0, 1, 2, 3, 4].map(i => (
-          <span key={i} className={"cb " + (i < Math.round(value * 5) ? "on" : "")}
+          <span key={i} className="cb"
             style={{ background: i < Math.round(value * 5) ? color : "var(--line-2)" }} />
         ))}
       </div>

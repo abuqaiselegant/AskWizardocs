@@ -43,6 +43,7 @@ coordinates. Edit the `stages` list and re-run.
 - Hybrid retrieval — BM25 keyword search + vector search, fused with RRF
 - Cross-encoder reranking via Cohere (top 20 → top 5)
 - GPT-4o-mini generates answers with inline citations `[1]`, `[2]`
+- Streamed answers — server-sent events, so text appears as it is written
 - Source selector — filter answers to one doc source or search all at once
 - Confidence meter — real reranker score (0–1), not a proxy
 - Context-aware follow-up suggestions per answer
@@ -128,6 +129,26 @@ User question + source filter
         └─ [5] Follow-ups
                 Second GPT call → 3 context-specific suggested questions
 ```
+
+### Buffered vs streamed
+
+`POST /ask` returns the finished object. `POST /ask/stream` runs the identical
+pipeline and emits server-sent events instead:
+
+```
+event: meta     {"confidence": 0.91}       once, before any text
+event: delta    "the next fragment"        many, concatenate for the answer
+event: done     {sources, followups, ...}  once, after generation
+```
+
+Steps [1]–[3] cannot stream — retrieval and reranking have to finish before a
+first token exists. That is also when the confidence is known, since it is the
+top chunk's reranker score and owes nothing to the generated text, so `meta`
+carries it and the meter renders before the first word arrives.
+
+Because the status line is already sent once a stream opens, quota and ownership
+are settled *before* the response begins, and a mid-stream failure arrives as an
+`error` event on a 200 rather than a 503.
 
 ---
 

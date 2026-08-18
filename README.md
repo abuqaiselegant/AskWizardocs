@@ -156,7 +156,18 @@ Start the API:
 uvicorn api.main:app --reload
 ```
 
-Start the frontend (separate terminal) — dev values come from `frontend/.env.development`:
+Create `frontend/.env.development`:
+```
+VITE_API_BASE=http://localhost:8000
+VITE_SUPABASE_URL=https://your-project-id.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJ...
+```
+
+The anon key is public by design — it ships in the browser bundle, and row-level
+security is what protects the data — but no env file is committed, so this one is
+yours to create. Production values are set as Vercel environment variables.
+
+Start the frontend (separate terminal):
 ```bash
 cd frontend && npm install && npm run dev
 ```

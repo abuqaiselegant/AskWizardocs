@@ -18,6 +18,7 @@ frontend/
 .claude/
 CLAUDE.md
 PLAN.md
+DEPLOY.md
 tests/
 scripts/
 src/evaluation/eval_results.jsonl

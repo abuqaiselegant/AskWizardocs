@@ -2,3 +2,10 @@ node_modules/
 dist/
 .env.local
 .env.*.local
+
+# Local dev values, including the Supabase anon key. The anon key is public by
+# design — it ships in the browser bundle and RLS is what protects the data —
+# but the file stays out of git so the repo carries no env files at all.
+# The three VITE_ vars it needs are documented in README.md.
+# (`.env.*.local` above does not match this name.)
+.env.development

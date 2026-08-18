@@ -16,6 +16,12 @@ context/
 PLAN.md
 PROJECT_SUMMARY.md
 
+# Deployment walkthrough — kept locally, not published. It is a step-by-step
+# for one specific AWS account (signup, billing, identity verification, credit
+# redemption) rather than documentation of this project, and README.md already
+# covers what a reader needs. Anchored so it only matches the one at the root.
+/DEPLOY.md
+
 # macOS
 .DS_Store
 **/.DS_Store

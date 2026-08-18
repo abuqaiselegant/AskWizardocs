@@ -32,6 +32,36 @@ function toSource(s) {
   };
 }
 
+// Read a server-sent-event body from fetch(). EventSource is not usable here:
+// it is GET-only and cannot set the Authorization header, so the frames get
+// parsed by hand. Frames are separated by a blank line; whatever trails the last
+// separator is a partial frame and stays buffered for the next read.
+async function readSSE(res, onEvent) {
+  const reader  = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let split;
+    while ((split = buffer.indexOf("\n\n")) !== -1) {
+      const frame = buffer.slice(0, split);
+      buffer = buffer.slice(split + 2);
+      let event = "message", data = "";
+      for (const line of frame.split("\n")) {
+        if (line.startsWith("event:"))     event = line.slice(6).trim();
+        else if (line.startsWith("data:")) data += line.slice(5).trim();
+      }
+      // Trimming the line is safe: the payload is JSON, so the quotes protect
+      // any leading or trailing space that belongs inside a text delta.
+      if (data) {
+        try { onEvent(event, JSON.parse(data)); } catch { /* skip a malformed frame */ }
+      }
+    }
+  }
+}
+
 function fmtTime(iso) {
   if (!iso) return "";
   const d = new Date(iso), now = new Date();
@@ -241,66 +271,74 @@ function Chat({ go, theme, toggleTheme, user }) {
       }
     }
 
+    // Hoisted so the catch below can keep a partially streamed answer instead of
+    // replacing it with the error.
+    let streamedText = "";
+
     try {
-      const res = await fetch(`${API_BASE}/ask`, {
+      const res = await fetch(`${API_BASE}/ask/stream`, {
         method: "POST",
         headers: hdrs,
         body: JSON.stringify({ question: q, chat_id: currentChatId, history: historyForContext, source: selectedSource }),
       });
 
+      // Ownership, plan and quota are all settled before the stream opens, so
+      // 401 / 402 / 404 are still ordinary status codes with a JSON body.
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
         throw new Error(detail.detail || `HTTP ${res.status}`);
       }
 
-      const data = await res.json();
-      // data = { answer, sources: [{number, title, url, source, score, snippet}], confidence, followups }
+      const patchLast = (fields) => setMessages(ms => ms.map((m, idx) =>
+        idx === ms.length - 1 ? { ...m, ...fields } : m
+      ));
 
-      const realSources = data.sources.map(toSource);
-      // null when the reranker fell back to RRF order and reported no score.
-      // `|| 0.78` used to turn that into a "medium · 78%" meter the pipeline
-      // never measured — the same fiction the source-card scores dropped.
-      const confidence = typeof data.confidence === "number" ? data.confidence : null;
-      const reply = data.answer;
-      const followupSuggestions = data.followups || [];
-      const messageId = data.message_id || null;
+      let streamError = null;
 
-      // Animate text streaming
-      let i = 0;
-      const interval = setInterval(() => {
-        i += 6;
-        setMessages(ms => ms.map((m, idx) =>
-          idx === ms.length - 1
-            ? { ...m, text: reply.slice(0, i), srcs: realSources, confidence }
-            : m
-        ));
-        if (i >= reply.length) {
-          clearInterval(interval);
-          setMessages(ms => ms.map((m, idx) =>
-            idx === ms.length - 1
-              ? { ...m, text: reply, streamed: false, srcs: realSources, confidence, id: messageId }
-              : m
-          ));
+      await readSSE(res, (event, payload) => {
+        if (event === "meta") {
+          // Retrieval and rerank are done, so the confidence is already known —
+          // the meter can render before a single word of the answer exists.
+          patchLast({ confidence: typeof payload.confidence === "number" ? payload.confidence : null });
+        } else if (event === "delta") {
+          streamedText += payload;
+          patchLast({ text: streamedText });
+        } else if (event === "done") {
+          patchLast({
+            text: streamedText,
+            streamed: false,
+            srcs: (payload.sources || []).map(toSource),
+            id:   payload.message_id || null,
+          });
           setQueriesUsed(prev => prev + 1);
-          setFollowups(followupSuggestions);
-          setStreaming(false);
-          // The sidebar list was fetched before /ask stored this exchange, so it
+          setFollowups(payload.followups || []);
+          // The sidebar list was fetched before the exchange was stored, so it
           // still says the chat is empty. Without this, clicking the chat you
           // just used would treat it as title-only and start a new thread.
-          if (messageId) {
+          if (payload.message_id) {
             setHistory(hs => hs.map(c => c.id === currentChatId
               ? { ...c, message_count: (c.message_count || 0) + 2 }   // user + assistant
               : c));
           }
+        } else if (event === "error") {
+          streamError = payload.detail || "Answer generation failed.";
         }
-      }, 18);
+      });
+
+      if (streamError) throw new Error(streamError);
+      setStreaming(false);
     } catch (err) {
       const errMsg = err.message.includes("Failed to fetch")
         ? "Cannot reach the API — make sure the backend is running on " + API_BASE
         : err.message;
       setMessages(ms => ms.map((m, idx) =>
         idx === ms.length - 1
-          ? { ...m, text: `⚠ ${errMsg}`, streamed: false, srcs: [], confidence: null }
+          ? { ...m,
+              // Keep whatever already arrived. The reader may have been halfway
+              // through a useful answer, and throwing it away to show the error
+              // loses more than it explains.
+              text: streamedText ? `${streamedText}\n\n⚠ ${errMsg}` : `⚠ ${errMsg}`,
+              streamed: false, srcs: [] }
           : m
       ));
       setError(errMsg);

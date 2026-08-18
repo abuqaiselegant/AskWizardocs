@@ -102,6 +102,55 @@ function ApiReference({ go, theme, toggleTheme, user }) {
       ],
     },
     {
+      id: "ask-stream",
+      method: "POST",
+      path: "/ask/stream",
+      auth: true,
+      summary: "Ask a question (streamed)",
+      description: "Identical pipeline to POST /ask, delivered as server-sent events so the answer can be read while it is still being written. Retrieval and reranking cannot stream — they must finish before a first token exists — so the meta event, which already carries the final confidence, arrives before any text.",
+      request: {
+        schema: [
+          { field: "question", type: "string",        required: true,  desc: "The question to answer. Max 2000 characters." },
+          { field: "source",   type: "string | null", required: false, desc: 'Filter retrieval to one source. One of: "langchain", "huggingface", "chromadb". Omit or set null to search all sources.' },
+          { field: "history",  type: "array",         required: false, desc: 'Prior conversation turns, max 6. Each item is {role: "user" | "assistant", content: string} with content up to 8000 characters. Any other role is rejected.' },
+          { field: "chat_id",  type: "string | null", required: false, desc: "UUID of an existing chat to persist this exchange to. Must belong to the caller. Omit to skip persistence." },
+        ],
+        example: `{
+  "question": "How do I use LoRA with PEFT for fine-tuning?",
+  "source": "huggingface",
+  "chat_id": null
+}`,
+      },
+      response: {
+        schema: [
+          { field: "Content-Type", type: "text/event-stream", desc: "Frames are event: <name> then data: <json>, separated by a blank line. Every payload is JSON-encoded, because answer text contains newlines and a raw newline would end the frame." },
+          { field: "meta",  type: "event", desc: "Sent once, before any text. {confidence: number | null} — the top chunk reranker score, null when the reranker fell back to RRF ordering or nothing was retrieved." },
+          { field: "delta", type: "event", desc: "Sent many times. A JSON string holding the next fragment of the answer. Concatenating every delta in order reproduces the answer exactly." },
+          { field: "done",  type: "event", desc: "Sent once, last. {sources, followups, message_id}. Same shapes as POST /ask. The full answer is not repeated — the client already has it from the deltas." },
+          { field: "error", type: "event", desc: "Replaces done if generation fails. {detail: string}. The quota is refunded only when the failure happened before any delta was sent; once text has been delivered the query counts, which also stops a client disconnect from earning free queries." },
+        ],
+        example: `event: meta
+data: {"confidence": 0.91}
+
+event: delta
+data: "To use LoRA with PEFT, "
+
+event: delta
+data: "first install the library...[1][2]"
+
+event: done
+data: {"sources": [{"number": 1, "title": "PEFT LoRA Tutorial", "url": "https://github.com/huggingface/peft", "source": "huggingface", "score": 0.91, "snippet": "LoRA decomposes..."}], "followups": ["How does QLoRA differ from standard LoRA?"], "message_id": "8f2c..."}`,
+      },
+      errors: [
+        { code: 400, desc: "Question is empty or whitespace only." },
+        { code: 401, desc: "Missing or invalid Authorization header." },
+        { code: 402, desc: "Free tier quota exceeded (100 queries/month)." },
+        { code: 404, desc: "chat_id does not exist or does not belong to you." },
+        { code: 422, desc: "Malformed body, or a bound exceeded (question > 2000 chars, history > 6 turns, content > 8000 chars, role not user/assistant)." },
+        { code: 503, desc: "Not used by this endpoint. Once the stream has opened the status line is already sent, so a generation failure arrives as an error event on a 200 response instead." },
+      ],
+    },
+    {
       id: "create-chat",
       method: "POST",
       path: "/chats",

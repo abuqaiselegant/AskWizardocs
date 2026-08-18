@@ -3,6 +3,7 @@ main.py — FastAPI app for AskMyDocs.
 
 Endpoints:
     POST /ask                        — full RAG pipeline: answer + cited sources
+    POST /ask/stream                 — same pipeline, server-sent events
     POST /chats, GET /chats,
     DELETE /chats                    — conversation list (cap: 10)
     GET  /chats/{id}/messages        — stored turns for one chat
@@ -17,16 +18,18 @@ API only — the frontend is a separate Vite build deployed to Vercel.
 from dotenv import load_dotenv
 load_dotenv()
 
+import json
 import logging
 from typing import Literal
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from api.auth import get_current_user
 from api import db
-from src.generation.generator import ask
+from src.generation.generator import ask, ask_stream
 
 log = logging.getLogger(__name__)
 
@@ -121,6 +124,83 @@ def ask_endpoint(request: AskRequest, user_id: str = Depends(get_current_user)):
             # explain it. exc_info so the Supabase error is recoverable.
             log.warning("save_messages failed for chat %s", request.chat_id, exc_info=True)
     return result
+
+
+def _sse(event: str, payload) -> str:
+    """One server-sent event frame.
+
+    The payload is JSON-encoded rather than written raw because answer text
+    contains newlines, and a newline inside a `data:` line ends the frame.
+    """
+    return f"event: {event}\ndata: {json.dumps(payload)}\n\n"
+
+
+@app.post("/ask/stream")
+def ask_stream_endpoint(request: AskRequest, user_id: str = Depends(get_current_user)):
+    """Same pipeline as /ask, delivered as it is produced.
+
+    /ask stays exactly as it was. Two endpoints rather than a flag on one,
+    because the failure semantics genuinely differ — see below — and because a
+    client that cannot read a stream should not have to know that.
+    """
+    if not request.question.strip():
+        raise HTTPException(status_code=400, detail="question must not be empty")
+    # Gating happens out here, before the response begins. Once the first byte
+    # of a streaming body is on the wire the status line is already sent, so a
+    # 402 or 404 decided inside the generator could not be expressed as one.
+    gate = db.start_ask(user_id, request.chat_id)
+    if gate == "not_found":
+        raise HTTPException(status_code=404, detail="Chat not found")
+    if gate == "over_limit":
+        raise HTTPException(status_code=402, detail="Monthly query limit reached. Upgrade to Pro.")
+
+    history = [{"role": t.role, "content": t.content} for t in request.history]
+
+    def events():
+        delivered = False        # has any answer text reached the client?
+        try:
+            for event, payload in ask_stream(request.question, history, source=request.source):
+                if event == "delta":
+                    delivered = True
+                    yield _sse("delta", payload)
+                elif event == "meta":
+                    yield _sse("meta", payload)
+                elif event == "done":
+                    message_id = None
+                    if request.chat_id:
+                        try:
+                            message_id = db.save_messages(
+                                request.chat_id, request.question,
+                                payload["answer"], payload["sources"])
+                        except Exception:
+                            log.warning("save_messages failed for chat %s",
+                                        request.chat_id, exc_info=True)
+                    yield _sse("done", {"sources":    payload["sources"],
+                                        "followups":  payload["followups"],
+                                        "message_id": message_id})
+        except Exception:
+            # Refund only when nothing was delivered. /ask refunds on any
+            # failure because a failure there means an empty response, but here
+            # a client that disconnects mid-answer also lands in this handler —
+            # refunding that would hand out free queries to anyone who closes
+            # the tab, and the OpenAI tokens were spent either way.
+            if not delivered:
+                db.refund_query(user_id)
+            log.warning("ask_stream failed for %s (delivered=%s)", user_id, delivered,
+                        exc_info=True)
+            yield _sse("error", {
+                "detail": "Answer generation failed." + ("" if delivered
+                          else " Your query was not counted."),
+            })
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        # no-cache stops a proxy replaying yesterday's answer; X-Accel-Buffering
+        # is nginx's opt-out, harmless elsewhere and cheap insurance since a
+        # buffering hop turns this back into /ask without any visible error.
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.post("/chats")

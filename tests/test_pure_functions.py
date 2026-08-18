@@ -43,11 +43,16 @@ _stub("src.retrieval.reranker",         rerank=lambda query, chunks: chunks[:5])
 fake_llm = _stub(
     "src.generation.llm",
     generate=lambda query, context, history=None: fake_llm.answer,
-    generate_followups=lambda question, answer: [],
+    generate_followups=lambda question, answer: list(fake_llm.followups),
+    # The streaming call replays whatever fragments a test parks here, so the
+    # event protocol can be asserted without an OpenAI stream.
+    generate_stream=lambda query, context, history=None: iter(fake_llm.fragments),
 )
 fake_llm.answer = ""
+fake_llm.fragments = []
+fake_llm.followups = []
 
-from src.generation.generator import generate                             # noqa: E402
+from src.generation.generator import ask_stream, generate, retrieval_query  # noqa: E402
 from src.retrieval.hybrid_retriever import RRF_K, reciprocal_rank_fusion  # noqa: E402
 
 
@@ -273,3 +278,103 @@ def test_metadata_raises_on_a_chunk_missing_a_required_field():
         assert "chunk_id" in str(e)
     else:
         raise AssertionError("expected KeyError for the missing chunk_id")
+
+
+# ── generator.retrieval_query ─────────────────────────────────────────────────
+# ask() and ask_stream() share this. If they ever retrieved differently for the
+# same question, the only symptom would be "the streamed answer is worse".
+
+def test_retrieval_query_is_the_bare_question_with_no_history():
+    assert retrieval_query("what is LoRA?") == "what is LoRA?"
+
+
+def test_retrieval_query_prepends_the_last_user_turn_for_follow_ups():
+    history = [{"role": "user", "content": "what is LoRA?"},
+               {"role": "assistant", "content": "A low-rank method [1]."}]
+    assert retrieval_query("explain more", history) == "what is LoRA? explain more"
+
+
+def test_retrieval_query_ignores_assistant_turns_when_looking_back():
+    history = [{"role": "user", "content": "first"},
+               {"role": "assistant", "content": "answer"},
+               {"role": "user", "content": "second"},
+               {"role": "assistant", "content": "answer"}]
+    assert retrieval_query("more", history) == "second more"
+
+
+# ── generator.ask_stream ──────────────────────────────────────────────────────
+# The event protocol IS the contract with the browser: meta first (so the
+# confidence meter can render before any text), deltas in order, done last with
+# everything that could only be known after the answer finished.
+
+def _run_stream(monkeypatch, fragments, chunks, followups=()):
+    import src.generation.generator as gen
+    monkeypatch.setattr(gen, "search_with_rerank", lambda q, source=None: chunks)
+    fake_llm.fragments = fragments
+    fake_llm.followups = list(followups)
+    return list(ask_stream("q"))
+
+
+def test_stream_emits_meta_first_carrying_the_confidence(monkeypatch):
+    events = _run_stream(monkeypatch, ["hi"], [chunk("a", rerank_score=0.9132)])
+    assert events[0] == ("meta", {"confidence": 0.9132})
+
+
+def test_stream_meta_confidence_is_none_when_rerank_reported_no_score(monkeypatch):
+    events = _run_stream(monkeypatch, ["hi"], [chunk("a")])
+    assert events[0] == ("meta", {"confidence": None})
+
+
+def test_stream_emits_every_fragment_in_order(monkeypatch):
+    events = _run_stream(monkeypatch, ["Lo", "RA is ", "low-rank."], [chunk("a")])
+    assert [p for e, p in events if e == "delta"] == ["Lo", "RA is ", "low-rank."]
+
+
+def test_stream_ends_with_done_and_nothing_after_it(monkeypatch):
+    events = _run_stream(monkeypatch, ["x"], [chunk("a")])
+    assert [e for e, _ in events] == ["meta", "delta", "done"]
+
+
+def test_streamed_answer_is_exactly_the_concatenated_deltas(monkeypatch):
+    # If these drift, the reader and the stored message disagree about what was
+    # said — and the bookmark saves the version nobody read.
+    events = _run_stream(monkeypatch, ["one ", "two ", "three"], [chunk("a")])
+    deltas = "".join(p for e, p in events if e == "delta")
+    done   = next(p for e, p in events if e == "done")
+    assert done["answer"] == deltas == "one two three"
+
+
+def test_stream_drops_leading_whitespace_before_it_reaches_the_reader(monkeypatch):
+    # generate() strips its answer, so the streamed text has to strip too or the
+    # displayed answer starts a line lower than the one that gets stored.
+    events = _run_stream(monkeypatch, ["\n\n", "  Answer [1]"], [chunk("a")])
+    deltas = "".join(p for e, p in events if e == "delta")
+    done   = next(p for e, p in events if e == "done")
+    assert deltas == "Answer [1]"
+    assert done["answer"] == "Answer [1]"
+
+
+def test_stream_keeps_whitespace_that_is_inside_the_answer(monkeypatch):
+    events = _run_stream(monkeypatch, ["A [1].", "\n\n", "B [1]."], [chunk("a")])
+    assert next(p for e, p in events if e == "done")["answer"] == "A [1].\n\nB [1]."
+
+
+def test_stream_done_carries_citations_resolved_against_the_chunks(monkeypatch):
+    chunks = [chunk("a"), chunk("b")]
+    events = _run_stream(monkeypatch, ["see [2] only"], chunks)
+    sources = next(p for e, p in events if e == "done")["sources"]
+    assert [s["number"] for s in sources] == [2]
+    assert sources[0]["title"] == "Title b"
+
+
+def test_stream_done_carries_the_followups(monkeypatch):
+    events = _run_stream(monkeypatch, ["x"], [chunk("a")], followups=["one?", "two?"])
+    assert next(p for e, p in events if e == "done")["followups"] == ["one?", "two?"]
+
+
+def test_stream_of_an_empty_generation_still_completes(monkeypatch):
+    # An empty stream must not hang or skip `done` — the client leaves the
+    # composer disabled until it arrives.
+    events = _run_stream(monkeypatch, [], [chunk("a")])
+    assert [e for e, _ in events] == ["meta", "done"]
+    assert next(p for e, p in events if e == "done")["answer"] == ""

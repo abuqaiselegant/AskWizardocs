@@ -43,6 +43,10 @@ def run() -> list[dict]:
             "answer":       result["answer"],
             "contexts":     contexts,
             "ground_truth": ground_truth,
+            # Carried through so scorer.py can break the means down per source.
+            # A blended average over a corpus that is 72% HuggingFace cannot say
+            # which source regressed.
+            "source":       pair.get("source", ""),
         })
 
         if i < len(pairs):

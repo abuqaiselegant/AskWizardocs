@@ -68,16 +68,31 @@ def score() -> dict:
         embeddings = embeddings,
     )
 
-    scores_df   = result.to_pandas()
-    mean_scores = scores_df[
-        ["faithfulness", "answer_relevancy", "context_precision"]
-    ].mean().to_dict()
+    scores_df = result.to_pandas()
+    metrics   = ["faithfulness", "answer_relevancy", "context_precision"]
 
+    mean_scores = scores_df[metrics].mean().to_dict()
+
+    # results.json deliberately keeps its flat {metric: float} shape — ci_gate.py
+    # formats every value it finds with :.4f, so nesting the per-source breakdown
+    # in here would crash the gate on a dict.
     SCORES_FILE.write_text(json.dumps(mean_scores, indent=2))
 
     print(f"\n✅ Scores saved to {SCORES_FILE}")
     for metric, val in mean_scores.items():
         print(f"   {metric:<22} {val:.4f}")
+
+    # Per-source breakdown. The overall mean is dominated by whichever source has
+    # the most questions, so it cannot answer "did HuggingFace retrieval regress?"
+    # Printed rather than stored: it is a reading aid for whoever ran the eval.
+    # to_pandas() preserves sample order, so row i is rows[i].
+    scores_df["source"] = [r.get("source", "") for r in rows]
+    if scores_df["source"].nunique() > 1:
+        print("\n   by source (n = questions):")
+        print(f"   {'source':<14}{'n':>4}  " + "  ".join(f"{m:>17}" for m in metrics))
+        for src, group in scores_df.groupby("source", sort=True):
+            cells = "  ".join(f"{group[m].mean():>17.4f}" for m in metrics)
+            print(f"   {src:<14}{len(group):>4}  {cells}")
 
     return mean_scores
 

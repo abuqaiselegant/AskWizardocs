@@ -95,7 +95,18 @@ def ask_endpoint(request: AskRequest, user_id: str = Depends(get_current_user)):
     if db.reserve_query(user_id):
         raise HTTPException(status_code=402, detail="Monthly query limit reached. Upgrade to Pro.")
     history = [{"role": t.role, "content": t.content} for t in request.history]
-    result = ask(request.question, history, source=request.source)
+    try:
+        result = ask(request.question, history, source=request.source)
+    except Exception:
+        # The quota is spent before the pipeline runs, so a failure here would
+        # otherwise cost the user one of their 100 for an answer they never got.
+        # Note this is narrower than it looks: the reranker already fails safe,
+        # so a Cohere outage degrades rather than raises. What lands here is the
+        # OpenAI side (rate limit, quota, timeout), the embedding call and Chroma.
+        db.refund_query(user_id)
+        log.warning("ask() failed; refunded query for %s", user_id, exc_info=True)
+        raise HTTPException(status_code=503,
+                            detail="Answer generation failed — your query was not counted.")
     if request.chat_id:
         try:
             result["message_id"] = db.save_messages(

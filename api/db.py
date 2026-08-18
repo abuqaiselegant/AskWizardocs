@@ -246,13 +246,28 @@ def _consume_query(user_id: str) -> int | None:
     return value if isinstance(value, int) else None
 
 
+def refund_query(user_id: str) -> int | None:
+    """Give one query back. Returns the new total, or None if unavailable.
+
+    Floors at zero in SQL — see refund_query() in supabase_schema.sql.
+    """
+    r = requests.post(f"{_base()}/rest/v1/rpc/refund_query", headers=_h(),
+                      json={"p_user_id": user_id})
+    if not r.ok:
+        return None
+    value = r.json()
+    return value if isinstance(value, int) else None
+
+
 def reserve_query(user_id: str) -> bool:
     """Consume one query from this month's allowance. True = over the limit.
 
     Counting and checking are a single statement (see consume_query() in
     supabase_schema.sql) so parallel requests cannot each pass a stale check.
-    The cost is that the query is spent up front: a request that later fails
-    still counts. Paid plans are metered but never blocked.
+    The query is spent up front; /ask refunds it if the pipeline then fails.
+    A refusal is refunded here, so a blocked user's counter settles at exactly
+    the limit instead of climbing with every rejected attempt. Paid plans are
+    metered but never blocked.
     """
     plan = get_plan(user_id)
 
@@ -265,7 +280,13 @@ def reserve_query(user_id: str) -> bool:
 
     if plan != "free":
         return False
-    return used > FREE_QUERY_LIMIT
+
+    over = used > FREE_QUERY_LIMIT
+    if over:
+        # Charging for a request that is about to be refused would make
+        # queries_used climb past the limit forever.
+        refund_query(user_id)
+    return over
 
 
 def get_queries_used(user_id: str) -> int:

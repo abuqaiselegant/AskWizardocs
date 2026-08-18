@@ -184,3 +184,36 @@ $$;
 -- caller holding the anon key could otherwise burn any user's monthly quota.
 revoke execute on function public.consume_query(uuid) from public, anon, authenticated;
 grant  execute on function public.consume_query(uuid) to service_role;
+
+-- ============================================================
+-- refund_query — give a spent query back
+-- ============================================================
+-- consume_query() charges before the pipeline runs, so an OpenAI outage or a
+-- refused over-limit request would otherwise cost the user one of their 100.
+-- greatest(count - 1, 0) is the important part: without the floor a burst of
+-- failures drives the counter negative and silently hands out free queries,
+-- which is the mirror image of the race consume_query() exists to prevent.
+create or replace function public.refund_query(p_user_id uuid)
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  new_count int;
+begin
+  update public.query_usage
+     set count = greatest(count - 1, 0)
+   where user_id = p_user_id
+     and period_start = date_trunc('month', now())::date
+  returning count into new_count;
+
+  return new_count;
+end;
+$$;
+
+-- Same reasoning as consume_query above: PUBLIC holds EXECUTE by default and
+-- anon/authenticated inherit it, so revoking from those two alone is a no-op.
+-- A caller with the anon key could otherwise refund their own quota forever.
+revoke execute on function public.refund_query(uuid) from public, anon, authenticated;
+grant  execute on function public.refund_query(uuid) to service_role;

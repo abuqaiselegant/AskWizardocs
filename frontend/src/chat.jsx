@@ -71,15 +71,9 @@ function Chat({ go, theme, toggleTheme, user }) {
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, [input]);
 
-  // Carry each chat's real position through the filter. The cap rule keys off
-  // it — only the top 2 chats have messages in the DB — so renumbering by the
-  // filtered position would make a match at position 5 try to load messages
-  // that were deleted.
   const visibleChats = React.useMemo(() => {
     const q = search.trim().toLowerCase();
-    return history
-      .map((h, i) => ({ h, i }))
-      .filter(({ h }) => !q || (h.title || "").toLowerCase().includes(q));
+    return history.filter(h => !q || (h.title || "").toLowerCase().includes(q));
   }, [history, search]);
 
   const QUERY_LIMIT = 100;
@@ -160,6 +154,21 @@ function Chat({ go, theme, toggleTheme, user }) {
     }));
   };
 
+  // A thread you cannot see is not a thread to continue: a chat with no stored
+  // messages starts a new conversation on the next send, rather than appending
+  // to a chat whose history the cap already removed. message_count comes from
+  // GET /chats, so the cap rule stays in the backend that enforces it.
+  const openChat = async (chat) => {
+    setActiveId(chat.id);
+    if (chat.message_count > 0) {
+      setChatId(chat.id);
+      await loadChatMessages(chat.id);
+    } else {
+      setMessages([]);
+      setChatId(null);
+    }
+  };
+
   // Load sidebar + profile on mount; open wd-open-chat if set, else most recent
   React.useEffect(() => {
     (async () => {
@@ -180,20 +189,14 @@ function Chat({ go, theme, toggleTheme, user }) {
       const openId = localStorage.getItem("wd-open-chat");
       if (openId) {
         localStorage.removeItem("wd-open-chat");
-        const pos = chats.findIndex(c => c.id === openId);
-        if (pos >= 0) {
-          setChatId(chats[pos].id);
-          setActiveId(chats[pos].id);
-          if (pos < 2) await loadChatMessages(chats[pos].id);
+        const target = chats.find(c => c.id === openId);
+        if (target) {
+          await openChat(target);
           return;
         }
       }
 
-      if (chats.length > 0) {
-        setChatId(chats[0].id);
-        setActiveId(chats[0].id);
-        await loadChatMessages(chats[0].id);
-      }
+      if (chats.length > 0) await openChat(chats[0]);
     })();
   }, []);
 
@@ -281,6 +284,14 @@ function Chat({ go, theme, toggleTheme, user }) {
           setQueriesUsed(prev => prev + 1);
           setFollowups(followupSuggestions);
           setStreaming(false);
+          // The sidebar list was fetched before /ask stored this exchange, so it
+          // still says the chat is empty. Without this, clicking the chat you
+          // just used would treat it as title-only and start a new thread.
+          if (messageId) {
+            setHistory(hs => hs.map(c => c.id === currentChatId
+              ? { ...c, message_count: (c.message_count || 0) + 2 }   // user + assistant
+              : c));
+          }
         }
       }, 18);
     } catch (err) {
@@ -326,23 +337,12 @@ function Chat({ go, theme, toggleTheme, user }) {
 
         <div className="side-group">
           <div className="side-group-head mono">Recent</div>
-          {visibleChats.map(({ h, i }) => (
+          {visibleChats.map(h => (
             <HistItem
               key={h.id}
               h={{ ...h, time: fmtTime(h.created_at) }}
               active={h.id === activeId}
-              onClick={async () => {
-                setActiveId(h.id);
-                if (i < 2) {
-                  // has messages in DB — load them
-                  setChatId(h.id);
-                  await loadChatMessages(h.id);
-                } else {
-                  // title-only — clicking starts a new thread on next send
-                  setMessages([]);
-                  setChatId(null);
-                }
-              }}
+              onClick={() => openChat(h)}
             />
           ))}
           {search.trim() && visibleChats.length === 0 && (

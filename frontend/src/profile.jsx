@@ -284,8 +284,7 @@ function HistoryTimeline({ chats, go, loading }) {
             </div>
             <div className="tl-entries">
               {group.items.map(chat => {
-                const pos = chats.indexOf(chat);
-                const hasMessages = pos < 2;
+                const hasMessages = (chat.message_count || 0) > 0;
                 return (
                   <button key={chat.id} className="tl-entry" onClick={() => {
                     if (hasMessages) localStorage.setItem("wd-open-chat", chat.id);
@@ -392,10 +391,10 @@ function Bookmarks({ items, loading, go, chats, onRemove }) {
 
             <footer className="bm-foot mono">
               <span><I.Cite size={11}/> {(b.sources_json || []).length} source{(b.sources_json || []).length !== 1 ? "s" : ""}</span>
-              {/* The chat page only loads messages for the 2 most recent chats,
-                  so offering to open an older one would be a button that does
-                  nothing. The saved answer itself is above either way. */}
-              {chats.findIndex(c => c.id === b.chat_id) < 2 && chats.some(c => c.id === b.chat_id) ? (
+              {/* Offering to open a chat whose messages the cap removed would be
+                  a button that does nothing. The saved answer itself is above
+                  either way. */}
+              {(chats.find(c => c.id === b.chat_id)?.message_count || 0) > 0 ? (
                 <button className="bm-open" onClick={() => { localStorage.setItem("wd-open-chat", b.chat_id); go("chat"); }}>
                   open conversation →
                 </button>

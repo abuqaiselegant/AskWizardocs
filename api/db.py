@@ -4,6 +4,8 @@ Cap rules: max 10 chats per user; messages kept only for the 2 most recent chats
 """
 
 import os
+from collections import Counter
+
 import requests
 from dotenv import load_dotenv
 
@@ -142,18 +144,36 @@ def chat_belongs_to_user(chat_id: str, user_id: str) -> bool:
 
 
 def get_chats(user_id: str) -> list:
-    r = requests.get(_url("workspaces"), headers=_h(),
-                     params={"owner_id": f"eq.{user_id}", "select": "id",
-                             "order": "created_at.asc", "limit": "1"})
-    rows = r.json() if r.ok else []
-    if not rows:
+    """This user's 10 most recent chats, each with its message_count.
+
+    The count exists so the client stops deciding by list position whether a
+    chat still has messages. That rule lives here (see create_chat) and used to
+    be re-derived in four places in the frontend, none of which would find out
+    if it changed. It is also no longer a yes/no question: a capped chat can
+    retain only its bookmarked answers, so the messages exist while the thread
+    does not.
+    """
+    workspace_id = _first_workspace(user_id)
+    if not workspace_id:
         return []
 
     r = requests.get(_url("chats"), headers=_h(),
-                     params={"workspace_id": f"eq.{rows[0]['id']}",
+                     params={"workspace_id": f"eq.{workspace_id}",
                              "select": "id,title,created_at",
                              "order": "created_at.desc", "limit": "10"})
-    return r.json() if r.ok else []
+    chats = r.json() if r.ok else []
+    if not chats:
+        return []
+
+    # One request for all ten. If it fails every count is 0, so chats read as
+    # title-only: reopening stops working, but nothing appends to a thread the
+    # UI cannot show — the safer direction to fail in.
+    ids = [c["id"] for c in chats]
+    r2 = requests.get(_url("messages"), headers=_h(),
+                      params={"chat_id": f"in.({','.join(ids)})", "select": "chat_id"})
+    counts = Counter(row["chat_id"] for row in r2.json()) if r2.ok else Counter()
+
+    return [{**c, "message_count": counts.get(c["id"], 0)} for c in chats]
 
 
 # ── messages ───────────────────────────────────────────────────────────────────

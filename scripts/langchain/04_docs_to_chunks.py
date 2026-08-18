@@ -1,6 +1,10 @@
 import os
 import json
-import hashlib
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from src.ingestion.chunk_schema import make_chunk   # noqa: E402
 
 input_file = "rag-dataset/data/processed/docs.jsonl"
 output_file = "rag-dataset/data/processed/chunks.jsonl"
@@ -9,10 +13,6 @@ os.makedirs("data/processed", exist_ok=True)
 
 CHUNK_SIZE = 1200
 OVERLAP = 200
-
-def make_doc_hash(doc_id: str) -> str:
-    """Small stable hash for IDs (so chunk IDs don't become huge)."""
-    return hashlib.sha1(doc_id.encode("utf-8")).hexdigest()[:10]
 
 def split_into_chunks(text: str, chunk_size: int, overlap: int):
     """
@@ -54,21 +54,19 @@ with open(input_file, "r", encoding="utf-8") as fin, open(output_file, "w", enco
         if not text or len(text) < 50:
             continue
 
-        doc_hash = make_doc_hash(doc_id)
-
         chunks = split_into_chunks(text, CHUNK_SIZE, OVERLAP)
 
         for idx, (start_char, end_char, chunk_text) in enumerate(chunks):
-            chunk = {
-                "chunk_id": f"langchain__{doc_hash}__c{idx:04d}",
-                "source": "langchain",
-                "doc_id": doc_id,
-                "url": url,
-                "title": title,
-                "chunk_index": idx,
-                "loc": {"start_char": start_char, "end_char": end_char},
-                "text": chunk_text
-            }
+            chunk = make_chunk(
+                source     = "langchain",
+                doc_id     = doc_id,
+                url        = url,
+                title      = title,
+                index      = idx,
+                start_char = start_char,
+                end_char   = end_char,
+                text       = chunk_text,
+            )
 
             fout.write(json.dumps(chunk, ensure_ascii=False) + "\n")
             written += 1

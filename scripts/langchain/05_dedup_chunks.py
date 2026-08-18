@@ -12,11 +12,17 @@ Stats (expected): 3422 → 3235 chunks (-187 duplicates)
 import hashlib
 import json
 import os
+import sys
 from pathlib import Path
 
 import chromadb
 from dotenv import load_dotenv
 from openai import OpenAI
+
+# Run from the repo root, which puts this file's directory on sys.path rather
+# than the project root — so the shared chunk schema needs the hint.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from src.ingestion.chunk_schema import chunk_metadata   # noqa: E402
 
 load_dotenv()
 
@@ -74,16 +80,7 @@ def reembed(chunks: list[dict]) -> None:
         batch     = chunks[start : start + BATCH_SIZE]
         ids       = [c["chunk_id"]   for c in batch]
         texts     = [c["text"]       for c in batch]
-        metadatas = [
-            {
-                "source":      c["source"],
-                "url":         c["url"],
-                "title":       c["title"],
-                "chunk_index": c["chunk_index"],
-                "chunk_id":    c["chunk_id"],
-            }
-            for c in batch
-        ]
+        metadatas = [chunk_metadata(c) for c in batch]
         vectors = embed_batch(texts)
         collection.add(ids=ids, embeddings=vectors, documents=texts, metadatas=metadatas)
         stored += len(batch)

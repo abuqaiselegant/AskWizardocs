@@ -23,9 +23,9 @@ After running:
 """
 
 import argparse
-import hashlib
 import json
 import os
+import sys
 import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -36,6 +36,11 @@ import trafilatura
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from openai import OpenAI
+
+# Run from the repo root, which puts this file's directory on sys.path rather
+# than the project root — so the shared chunk schema needs the hint.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from src.ingestion.chunk_schema import chunk_metadata, make_chunk   # noqa: E402
 
 load_dotenv()
 
@@ -175,23 +180,22 @@ def main():
             print(f"  Skipped (too short or no content)")
             continue
 
-        title    = get_title(html)
-        doc_hash = hashlib.sha1(url.encode()).hexdigest()[:10]
+        title = get_title(html)
 
         for idx, (start, end, chunk_text_) in enumerate(chunk_text(text)):
-            cid = f"{args.source}__{doc_hash}__c{idx:04d}"
-            if cid in known_ids or cid in existing_jsonl_ids:
+            chunk = make_chunk(
+                source     = args.source,
+                doc_id     = url,
+                url        = url,
+                title      = title,
+                index      = idx,
+                start_char = start,
+                end_char   = end,
+                text       = chunk_text_,
+            )
+            if chunk["chunk_id"] in known_ids or chunk["chunk_id"] in existing_jsonl_ids:
                 continue
-            new_chunks.append({
-                "chunk_id":    cid,
-                "source":      args.source,
-                "doc_id":      url,
-                "url":         url,
-                "title":       title,
-                "chunk_index": idx,
-                "loc":         {"start_char": start, "end_char": end},
-                "text":        chunk_text_,
-            })
+            new_chunks.append(chunk)
 
         time.sleep(0.3)
 
@@ -206,12 +210,7 @@ def main():
         batch     = new_chunks[start : start + BATCH_SIZE]
         ids       = [c["chunk_id"]   for c in batch]
         texts     = [c["text"]       for c in batch]
-        metadatas = [
-            {"source": c["source"], "url": c["url"],
-             "title": c["title"],   "chunk_index": c["chunk_index"],
-             "chunk_id": c["chunk_id"]}
-            for c in batch
-        ]
+        metadatas = [chunk_metadata(c) for c in batch]
         vectors = embed_batch(openai_client, texts)
         collection.add(ids=ids, embeddings=vectors, documents=texts, metadatas=metadatas)
         stored += len(batch)

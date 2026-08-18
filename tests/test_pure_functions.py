@@ -14,6 +14,7 @@ import types
 
 from src.generation.formatter import format_context
 from src.generation.parser import SNIPPET_CHARS, _snippet, extract_citations
+from src.ingestion.chunk_schema import chunk_metadata, make_chunk, make_chunk_id
 
 
 # ── Import-time stand-ins ─────────────────────────────────────────────────────
@@ -205,3 +206,70 @@ def test_confidence_is_none_when_nothing_was_retrieved():
     result = generate("q", [])
     assert result["confidence"] is None
     assert result["sources"] == []
+
+
+# ── chunk_schema — the ingestion contract ─────────────────────────────────────
+# Five writers used to build these records inline. The bug that motivated
+# collapsing them left chunk_id out of the Chroma metadata, which raises nothing
+# and shows up only as worse answers.
+
+def test_chunk_id_matches_the_format_the_indexed_corpus_uses():
+    # Pinned against a real row of chunks.jsonl. 13,280 chunks are already
+    # embedded under this scheme — changing the hash orphans every one of them.
+    assert make_chunk_id("langchain", "https://docs.langchain.com", 0) == \
+        "langchain__c4db8c60ce__c0000"
+
+
+def test_chunk_index_is_zero_padded_to_four_digits():
+    assert make_chunk_id("s", "d", 7).endswith("__c0007")
+    assert make_chunk_id("s", "d", 1234).endswith("__c1234")
+
+
+def test_id_prefix_overrides_the_source_slug():
+    # The HuggingFace GitHub pipeline keeps ids per library inside one source.
+    cid = make_chunk_id("hf_peft", "https://example/doc", 0)
+    assert cid.startswith("hf_peft__")
+
+
+def test_make_chunk_builds_the_stored_record():
+    c = make_chunk(source="chromadb", doc_id="d", url="u", title="t",
+                   index=3, start_char=10, end_char=20, text="body")
+    assert c["source"]      == "chromadb"
+    assert c["chunk_index"] == 3
+    assert c["loc"]         == {"start_char": 10, "end_char": 20}
+    assert c["text"]        == "body"
+    assert c["chunk_id"]    == make_chunk_id("chromadb", "d", 3)
+    assert "library" not in c
+
+
+def test_library_is_recorded_only_when_given():
+    c = make_chunk(source="huggingface", doc_id="d", url="u", title="t", index=0,
+                   start_char=0, end_char=1, text="x",
+                   id_prefix="hf_trl", library="trl")
+    assert c["library"] == "trl"
+    assert chunk_metadata(c)["library"] == "trl"
+
+
+def test_metadata_always_carries_chunk_id():
+    # The whole point of the module. RRF fuses BM25 and vector hits on this
+    # value; without it every vector hit collapses into one "" entry.
+    c = make_chunk(source="langchain", doc_id="d", url="u", title="t", index=0,
+                   start_char=0, end_char=1, text="x")
+    assert chunk_metadata(c)["chunk_id"] == c["chunk_id"]
+
+
+def test_metadata_carries_exactly_the_indexed_fields():
+    c = make_chunk(source="langchain", doc_id="d", url="u", title="t", index=0,
+                   start_char=0, end_char=1, text="x")
+    assert set(chunk_metadata(c)) == {"source", "url", "title", "chunk_index", "chunk_id"}
+    assert "text" not in chunk_metadata(c)     # the document, not metadata
+
+
+def test_metadata_raises_on_a_chunk_missing_a_required_field():
+    # Loud at ingestion time beats silent degradation months later.
+    try:
+        chunk_metadata({"source": "s", "url": "u", "title": "t", "chunk_index": 0})
+    except KeyError as e:
+        assert "chunk_id" in str(e)
+    else:
+        raise AssertionError("expected KeyError for the missing chunk_id")

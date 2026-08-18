@@ -17,9 +17,17 @@ Outputs: chroma_db/ (created automatically, persists to disk)
 
 import json
 import os
+import sys
+from pathlib import Path
+
 from dotenv import load_dotenv
 from openai import OpenAI
 import chromadb
+
+# Importable whether this is run as `python src/ingestion/embedder.py` or
+# `python -m src.ingestion.embedder`.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from src.ingestion.chunk_schema import chunk_metadata   # noqa: E402
 
 load_dotenv()
 
@@ -72,23 +80,14 @@ def store_chunks(chunks: list[dict]) -> None:
         # extract fields
         ids       = [c["chunk_id"] for c in batch]
         texts     = [c["text"]     for c in batch]
-        # chunk_id MUST be in the metadata, not just the Chroma id.
-        # vector_retriever.py reads meta.get("chunk_id", "") and
-        # hybrid_retriever.py keys RRF fusion on that value — so if it is
-        # missing, every vector hit collapses into a single "" entry, the
-        # worst-ranked one wins, and its summed RRF score pins it to rank 1
-        # ahead of every BM25 result. Silent, and only visible as bad answers.
-        # The three scripts in scripts/ already do this; this file did not.
-        metadatas = [
-            {
-                "source":      c["source"],
-                "url":         c["url"],
-                "title":       c["title"],
-                "chunk_index": c["chunk_index"],
-                "chunk_id":    c["chunk_id"],
-            }
-            for c in batch
-        ]
+        # chunk_metadata() guarantees chunk_id is in here. This file is where it
+        # was once missing — vector_retriever.py reads meta.get("chunk_id", "")
+        # and hybrid_retriever.py keys RRF fusion on that value, so without it
+        # every vector hit collapses into a single "" entry, the worst-ranked one
+        # wins, and its summed score pins it to rank 1 ahead of every BM25 result.
+        # Silent, and visible only as bad answers. Four writers used to build this
+        # dict independently; now there is one.
+        metadatas = [chunk_metadata(c) for c in batch]
 
         # embed
         vectors = embed_batch(texts)

@@ -2,8 +2,14 @@
 main.py — FastAPI app for AskMyDocs.
 
 Endpoints:
-    POST /ask     — run the full RAG pipeline, return answer + cited sources
-    GET  /health  — liveness check
+    POST /ask                        — full RAG pipeline: answer + cited sources
+    POST /chats, GET /chats,
+    DELETE /chats                    — conversation list (cap: 10)
+    GET  /chats/{id}/messages        — stored turns for one chat
+    POST /messages/{id}/bookmark     — save an answer (Pro)
+    GET  /bookmarks                  — saved answers, newest first
+    GET  /profile                    — name, plan, usage
+    GET  /health                     — liveness check
 
 API only — the frontend is a separate Vite build deployed to Vercel.
 """
@@ -52,6 +58,10 @@ class AskRequest(BaseModel):
 class CreateChatRequest(BaseModel):
     title: str = Field(max_length=200)
 
+class BookmarkRequest(BaseModel):
+    bookmarked: bool
+    note:       str | None = Field(default=None, max_length=500)
+
 
 class Source(BaseModel):
     number:  int
@@ -69,6 +79,9 @@ class AskResponse(BaseModel):
     # and there is no real score — the UI hides the meter rather than guessing.
     confidence: float | None = None
     followups:  list[str] = []
+    # Id of the stored assistant message, so the client can bookmark the answer
+    # it is looking at. None when there was no chat_id, or the save failed.
+    message_id: str | None = None
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -85,7 +98,8 @@ def ask_endpoint(request: AskRequest, user_id: str = Depends(get_current_user)):
     result = ask(request.question, history, source=request.source)
     if request.chat_id:
         try:
-            db.save_messages(request.chat_id, request.question, result["answer"], result["sources"])
+            result["message_id"] = db.save_messages(
+                request.chat_id, request.question, result["answer"], result["sources"])
         except Exception:
             # The answer is already paid for and still worth returning, so this
             # stays non-fatal — but it used to be a bare `pass`, which meant a
@@ -114,6 +128,26 @@ def get_messages(chat_id: str, user_id: str = Depends(get_current_user)):
     if not db.chat_belongs_to_user(chat_id, user_id):
         raise HTTPException(status_code=404, detail="Chat not found")
     return db.get_chat_messages(chat_id)
+
+
+@app.post("/messages/{message_id}/bookmark")
+def bookmark_message(message_id: str, body: BookmarkRequest,
+                     user_id: str = Depends(get_current_user)):
+    # Plan first: a free user must not learn whether a message id exists.
+    if db.get_plan(user_id) == "free":
+        raise HTTPException(status_code=402, detail="Saving answers is a Pro feature.")
+    if not db.message_belongs_to_user(message_id, user_id):
+        raise HTTPException(status_code=404, detail="Message not found")
+    if not db.set_bookmark(message_id, body.bookmarked, body.note):
+        raise HTTPException(status_code=500, detail="Failed to update bookmark")
+    return {"bookmarked": body.bookmarked}
+
+
+@app.get("/bookmarks")
+def list_bookmarks(user_id: str = Depends(get_current_user)):
+    # Not plan-gated: a user who was Pro and lapsed must still be able to read
+    # what they saved. Only creating a new bookmark costs a plan.
+    return db.get_bookmarks(user_id)
 
 
 @app.get("/profile")

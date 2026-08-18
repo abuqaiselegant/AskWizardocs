@@ -38,6 +38,7 @@ function Profile({ go, theme, toggleTheme, user }) {
   const [tab, setTab]       = React.useState("history");
   const [profile, setProfile] = React.useState({ plan: "free", chunks_indexed: 0 });
   const [chats, setChats]   = React.useState([]);
+  const [bookmarks, setBookmarks] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
 
   const name    = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split("@")[0] || "You";
@@ -50,12 +51,14 @@ function Profile({ go, theme, toggleTheme, user }) {
   React.useEffect(() => {
     (async () => {
       const h = await _authHdr();
-      const [pr, cr] = await Promise.all([
-        fetch(`${API_BASE}/profile`, { headers: h }),
-        fetch(`${API_BASE}/chats`,   { headers: h }),
+      const [pr, cr, br] = await Promise.all([
+        fetch(`${API_BASE}/profile`,   { headers: h }),
+        fetch(`${API_BASE}/chats`,     { headers: h }),
+        fetch(`${API_BASE}/bookmarks`, { headers: h }),
       ]);
       if (pr.ok) setProfile(await pr.json());
       if (cr.ok) setChats(await cr.json());
+      if (br.ok) setBookmarks(await br.json());
       setLoading(false);
     })();
   }, []);
@@ -101,7 +104,7 @@ function Profile({ go, theme, toggleTheme, user }) {
         <div className="tabs">
           {[
             {id:"history",   label:"History",       icon: <I.Clock size={14}/>,    n: chats.length},
-            {id:"bookmarks", label:"Saved answers",  icon: <I.Bookmark size={14}/>, n: 0},
+            {id:"bookmarks", label:"Saved answers",  icon: <I.Bookmark size={14}/>, n: bookmarks.length},
             {id:"settings",  label:"Settings",       icon: <I.Settings size={14}/>},
           ].map(t => (
             <button key={t.id} className={"tab " + (tab===t.id?"on":"")} onClick={() => setTab(t.id)}>
@@ -112,7 +115,18 @@ function Profile({ go, theme, toggleTheme, user }) {
         </div>
 
         {tab === "history"   && <HistoryTimeline chats={chats} go={go} loading={loading}/>}
-        {tab === "bookmarks" && <Bookmarks/>}
+        {tab === "bookmarks" && (
+          <Bookmarks items={bookmarks} loading={loading} go={go} chats={chats}
+            onRemove={async (id) => {
+              const h = await _authHdr();
+              const res = await fetch(`${API_BASE}/messages/${id}/bookmark`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", ...h },
+                body: JSON.stringify({ bookmarked: false }),
+              });
+              if (res.ok) setBookmarks(bs => bs.filter(b => b.id !== id));
+            }}/>
+        )}
         {tab === "settings"  && <Settings user={user} profile={profile} go={go} onClearHistory={handleClearHistory}/>}
       </div>
 
@@ -337,12 +351,102 @@ function HistoryTimeline({ chats, go, loading }) {
   );
 }
 
-function Bookmarks() {
+function Bookmarks({ items, loading, go, chats, onRemove }) {
+  if (loading) {
+    return <div className="muted mono" style={{padding:"40px 0", fontSize:13}}>Loading…</div>;
+  }
+  if (!items.length) {
+    return (
+      <div style={{padding:"60px 0", textAlign:"center"}}>
+        <div style={{fontSize:32, color:"var(--ink-4)", marginBottom:12}}>🔖</div>
+        <h3 style={{fontFamily:"var(--font-display)", fontWeight:500, fontSize:20, margin:"0 0 8px", letterSpacing:"-0.01em"}}>No saved answers yet</h3>
+        <p className="muted">Use the Save button on any answer in chat to bookmark it here.</p>
+      </div>
+    );
+  }
+
   return (
-    <div style={{padding:"60px 0", textAlign:"center"}}>
-      <div style={{fontSize:32, color:"var(--ink-4)", marginBottom:12}}>🔖</div>
-      <h3 style={{fontFamily:"var(--font-display)", fontWeight:500, fontSize:20, margin:"0 0 8px", letterSpacing:"-0.01em"}}>No saved answers yet</h3>
-      <p className="muted">Use the Save button on any answer in chat to bookmark it here.</p>
+    <div className="bm">
+      <div className="tl-head">
+        <div>
+          <h2 className="tl-h2">Saved answers</h2>
+          <p className="muted" style={{marginTop:4}}>
+            {items.length} answer{items.length !== 1 ? "s" : ""} you pinned. These survive the
+            history cap — the conversation around them may not.
+          </p>
+        </div>
+      </div>
+
+      <div className="bm-list">
+        {items.map(b => (
+          <article key={b.id} className="bm-card">
+            <header className="bm-top">
+              <span className="mono bm-chat">{b.chat_title || "Untitled conversation"}</span>
+              <span className="mono bm-date">{fmtChatTime(b.created_at)}</span>
+              <span style={{flex:1}}/>
+              <button className="mono bm-x" title="Remove from saved answers"
+                onClick={() => onRemove(b.id)}>✕</button>
+            </header>
+
+            <div className="bm-body">{b.content}</div>
+
+            <footer className="bm-foot mono">
+              <span><I.Cite size={11}/> {(b.sources_json || []).length} source{(b.sources_json || []).length !== 1 ? "s" : ""}</span>
+              {/* The chat page only loads messages for the 2 most recent chats,
+                  so offering to open an older one would be a button that does
+                  nothing. The saved answer itself is above either way. */}
+              {chats.findIndex(c => c.id === b.chat_id) < 2 && chats.some(c => c.id === b.chat_id) ? (
+                <button className="bm-open" onClick={() => { localStorage.setItem("wd-open-chat", b.chat_id); go("chat"); }}>
+                  open conversation →
+                </button>
+              ) : (
+                <span style={{color:"var(--ink-4)"}}>conversation no longer stored</span>
+              )}
+            </footer>
+          </article>
+        ))}
+      </div>
+
+      <style>{`
+        .bm-list { display:flex; flex-direction: column; gap: 12px; }
+        .bm-card {
+          padding: 16px 18px;
+          background: var(--surface);
+          border: 1px solid var(--line);
+          border-radius: 12px;
+          transition: border-color .15s;
+        }
+        .bm-card:hover { border-color: var(--line-2); }
+        .bm-top { display:flex; align-items:center; gap: 10px; margin-bottom: 10px; }
+        .bm-chat {
+          font-size: 11px; color: var(--ink-2);
+          padding: 3px 9px; background: var(--bg);
+          border: 1px solid var(--line); border-radius: 999px;
+          max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .bm-date { font-size: 11px; color: var(--ink-4); letter-spacing: 0.05em; }
+        .bm-x {
+          width: 24px; height: 24px; display:grid; place-items:center;
+          border-radius: 6px; font-size: 11px; color: var(--ink-4);
+          transition: color .15s, background .15s;
+        }
+        .bm-x:hover { color: var(--danger); background: var(--surface-2); }
+        /* Clamp on the text itself, not the padded card — same reason as the
+           source-card snippet in chat.jsx: overflow clips at the padding edge. */
+        .bm-body {
+          font-size: 14px; line-height: 1.6; color: var(--ink-2);
+          display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical;
+          overflow: hidden; white-space: pre-wrap;
+        }
+        .bm-foot {
+          display:flex; align-items:center; justify-content: space-between;
+          margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line);
+          font-size: 11px; color: var(--ink-4);
+        }
+        .bm-foot span { display:inline-flex; align-items:center; gap: 6px; }
+        .bm-open { font-size: 11px; color: var(--ink-3); letter-spacing: 0.04em; }
+        .bm-open:hover { color: var(--accent); }
+      `}</style>
     </div>
   );
 }

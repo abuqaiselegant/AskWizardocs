@@ -85,6 +85,30 @@ function Chat({ go, theme, toggleTheme, user }) {
   const QUERY_LIMIT = 100;
   const isLimited = plan === "free" && queriesUsed >= QUERY_LIMIT;
 
+  // Save is Pro-gated at the API too (402); this check only avoids a round trip
+  // that is certain to fail, and keeps the existing upgrade toast.
+  const toggleBookmark = async (idx) => {
+    const m = messages[idx];
+    if (plan === "free") return showProToast("Saving answers is a Pro feature.");
+    if (!m?.id)          return showProToast("This answer is still saving — try again in a moment.");
+
+    const next = !m.bookmarked;
+    setMessages(ms => ms.map((x, i) => i === idx ? { ...x, bookmarked: next } : x));
+
+    const h = await authHdr();
+    const res = await fetch(`${API_BASE}/messages/${m.id}/bookmark`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...h },
+      body: JSON.stringify({ bookmarked: next }),
+    });
+    if (!res.ok) {
+      // Put the icon back rather than leave it claiming a save that did not land.
+      setMessages(ms => ms.map((x, i) => i === idx ? { ...x, bookmarked: !next } : x));
+      const detail = await res.json().catch(() => ({}));
+      showProToast(detail.detail || "Could not save that answer.");
+    }
+  };
+
   const showProToast = (msg) => {
     setProToast(msg);
     setTimeout(() => setProToast(null), 4000);
@@ -125,7 +149,8 @@ function Chat({ go, theme, toggleTheme, user }) {
       const srcs   = (m.sources_json || []).map(toSource);
       const scored = srcs.map(s => s.score).filter(v => v !== null);
       return {
-        role: m.role, text: m.content, streamed: false,
+        id: m.id, role: m.role, text: m.content, streamed: false,
+        bookmarked: !!m.bookmarked,
         srcs,
         at: new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         // Best real rerank score on the reopened answer. null hides the meter —
@@ -235,6 +260,7 @@ function Chat({ go, theme, toggleTheme, user }) {
       const confidence = typeof data.confidence === "number" ? data.confidence : null;
       const reply = data.answer;
       const followupSuggestions = data.followups || [];
+      const messageId = data.message_id || null;
 
       // Animate text streaming
       let i = 0;
@@ -249,7 +275,7 @@ function Chat({ go, theme, toggleTheme, user }) {
           clearInterval(interval);
           setMessages(ms => ms.map((m, idx) =>
             idx === ms.length - 1
-              ? { ...m, text: reply, streamed: false, srcs: realSources, confidence }
+              ? { ...m, text: reply, streamed: false, srcs: realSources, confidence, id: messageId }
               : m
           ));
           setQueriesUsed(prev => prev + 1);
@@ -431,7 +457,7 @@ function Chat({ go, theme, toggleTheme, user }) {
                   m={m}
                   mi={i}
                   onHoverCite={setHoveredCite}
-                  onSave={() => showProToast("Saving answers is a Pro feature.")}
+                  onSave={() => toggleBookmark(i)}
                 />
                 {!m.streamed && m.srcs?.length > 0 && (
                   <SourceCards
@@ -810,7 +836,13 @@ function AssistantMessage({ m, mi, onHoverCite, onSave }) {
           <button className="aa" title="Copy" onClick={() => navigator.clipboard?.writeText(m.text)}>
             <I.Copy size={13} /><span>Copy</span>
           </button>
-          <button className="aa" title="Save answer (Pro)" onClick={onSave}><I.Bookmark size={13} /><span>Save</span></button>
+          <button
+            className={"aa " + (m.bookmarked ? "aa-on" : "")}
+            title={m.bookmarked ? "Remove from saved answers" : "Save answer (Pro)"}
+            onClick={onSave}
+          >
+            <I.Bookmark size={13} /><span>{m.bookmarked ? "Saved" : "Save"}</span>
+          </button>
           <div style={{ flex: 1 }} />
           <div className="mono src-pills">
             {sources.filter(s => s.source).map(s => (
@@ -864,6 +896,8 @@ function AssistantMessage({ m, mi, onHoverCite, onSave }) {
           transition: color .15s, background .15s;
         }
         .aa:hover { color: var(--ink); background: var(--surface-2); }
+        .aa-on, .aa-on:hover { color: var(--accent); }
+        .aa-on svg { fill: currentColor; }
         .src-pills { display:inline-flex; gap: 4px; flex-wrap: wrap; justify-content:flex-end; }
         .src-pill {
           display:inline-flex; align-items:center; gap: 5px;

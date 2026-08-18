@@ -54,6 +54,17 @@ create table if not exists public.chunk_usage (
   chunks_indexed  int not null default 0
 );
 
+-- 7. bookmarks (Pro feature 1)
+--    Saved answers live on the message itself rather than in a join table:
+--    a bookmark has no meaning without its message, and there is exactly one
+--    per message. The partial index only covers bookmarked rows, which is the
+--    tiny minority — the profile tab reads them, nothing else does.
+alter table public.messages add column if not exists bookmarked    bool not null default false;
+alter table public.messages add column if not exists bookmark_note text;
+
+create index if not exists messages_bookmarked_idx
+  on public.messages (chat_id) where bookmarked;
+
 -- ============================================================
 -- Row Level Security
 -- ============================================================

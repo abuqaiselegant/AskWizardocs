@@ -1,0 +1,35 @@
+# Runs the offline test suite on every push and pull request.
+#
+# Deliberately installs pytest and nothing else. tests/test_pure_functions.py
+# registers stand-ins for bm25_retriever, vector_retriever, reranker and llm in
+# sys.modules before importing anything, so the suite never reaches chromadb,
+# cohere, openai or fastapi — the only third-party import left is pytest itself.
+# Verified: a clean venv with `pip install pytest` runs all 30 in 0.02 s.
+#
+# That is the point of the suite, not an accident of it: no API keys, no 19 MB
+# corpus, no network. Installing requirements.txt here would add ~96 packages
+# and a minute of wall clock to test functions that only need hashlib.
+#
+# If a future test does need a real dependency, this job fails on ImportError
+# rather than passing quietly — which is the right way round.
+
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install pytest
+
+      # Run from the repo root so `src.` resolves (same as requirements-dev.txt says).
+      - run: python -m pytest tests/ -q

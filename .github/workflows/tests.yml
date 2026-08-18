@@ -1,17 +1,24 @@
 # Runs the offline test suite on every push and pull request.
 #
-# Deliberately installs pytest and nothing else. tests/test_pure_functions.py
-# registers stand-ins for bm25_retriever, vector_retriever, reranker and llm in
-# sys.modules before importing anything, so the suite never reaches chromadb,
-# cohere, openai or fastapi — the only third-party import left is pytest itself.
-# Verified: a clean venv with `pip install pytest` runs all 30 in 0.02 s.
+# Installs pytest, fastapi and httpx — and nothing else. The test files register
+# stand-ins for bm25_retriever, vector_retriever, reranker, llm, generator,
+# requests, dotenv and jwt in sys.modules before importing anything, so the suite
+# never reaches chromadb, cohere, openai, the 19 MB corpus or the network.
 #
-# That is the point of the suite, not an accident of it: no API keys, no 19 MB
-# corpus, no network. Installing requirements.txt here would add ~96 packages
-# and a minute of wall clock to test functions that only need hashlib.
+# fastapi (+ httpx2, which starlette's TestClient needs — plain httpx still
+# works but warns that it is deprecated) is here so api/main.py
+# can be covered at all: the endpoints are where the quota refunds, the SSE
+# protocol and the bookmark plan-gate live, and none of that is reachable
+# without constructing the app. Measured: 20 packages, 4 s. Installing
+# requirements.txt instead would be ~96 packages and a minute of wall clock, to
+# test functions that mostly need hashlib — so the line is drawn at what the app
+# needs to exist, not at what it needs to run.
 #
-# If a future test does need a real dependency, this job fails on ImportError
-# rather than passing quietly — which is the right way round.
+# No API keys, no corpus, no network — still the point of the suite rather than
+# an accident of it.
+#
+# If a future test needs a dependency beyond these three, this job fails on
+# ImportError rather than passing quietly — which is the right way round.
 
 name: tests
 
@@ -29,7 +36,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - run: pip install pytest
+      - run: pip install pytest fastapi httpx2
 
       # Run from the repo root so `src.` resolves (same as requirements-dev.txt says).
       - run: python -m pytest tests/ -q

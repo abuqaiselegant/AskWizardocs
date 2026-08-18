@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="934" viewBox="0 0 1180 934" role="img" aria-label="Wizardocs request path for POST /ask">
+<rect x="0" y="0" width="1180" height="934" rx="0" fill="#0d0d14"/>
+<text x="40" y="44" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="19" font-weight="600" fill="#e8e6e0" text-anchor="start">Wizardocs — the POST /ask request path</text>
+<text x="40" y="68" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="13" font-weight="400" fill="#78767a" text-anchor="start">React SPA on Vercel  →  Caddy + FastAPI on one EC2 box  →  Supabase, OpenAI, Cohere</text>
+<rect x="40" y="96" width="300" height="62" rx="10" fill="#12121a" stroke="#2c2c3c" stroke-width="1"/>
+<text x="58" y="122" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="14" font-weight="600" fill="#e8e6e0" text-anchor="start">Browser</text>
+<text x="58" y="141" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" font-weight="400" fill="#78767a" text-anchor="start">React 18 + Vite · Vercel</text>
+<path d="M 348 127.0 L 365 127.0" stroke="#2c2c3c" stroke-width="1.5" fill="none"/>
+<path d="M 365 122.5 L 365 131.5 L 372 127.0 Z" fill="#2c2c3c"/>
+<rect x="380" y="96" width="300" height="62" rx="10" fill="#12121a" stroke="#2c2c3c" stroke-width="1"/>
+<text x="398" y="122" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="14" font-weight="600" fill="#e8e6e0" text-anchor="start">Caddy</text>
+<text x="398" y="141" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" font-weight="400" fill="#78767a" text-anchor="start">TLS · auto-renewed certs</text>
+<path d="M 688 127.0 L 705 127.0" stroke="#2c2c3c" stroke-width="1.5" fill="none"/>
+<path d="M 705 122.5 L 705 131.5 L 712 127.0 Z" fill="#2c2c3c"/>
+<rect x="720" y="96" width="300" height="62" rx="10" fill="#12121a" stroke="#2c2c3c" stroke-width="1"/>
+<text x="738" y="122" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="14" font-weight="600" fill="#e8e6e0" text-anchor="start">FastAPI</text>
+<text x="738" y="141" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" font-weight="400" fill="#78767a" text-anchor="start">uvicorn · EC2 t3.small</text>
+<path d="M 870.0 162 V 184 H 340.0 V 213" stroke="#2c2c3c" stroke-width="1.6" fill="none"/>
+<path d="M 335.5 213 L 344.5 213 L 340.0 220 Z" fill="#2c2c3c"/>
+<text x="856.0" y="175" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" font-weight="400" fill="#78767a" text-anchor="end">authenticated request</text>
+<rect x="40" y="220" width="600" height="81" rx="10" fill="#171722" stroke="#2c2c3c" stroke-width="1"/>
+<path d="M 41 231 L 41 290" stroke="#f07c9e" stroke-width="3" stroke-linecap="round"/>
+<text x="62" y="248" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" font-weight="700" fill="#f07c9e" text-anchor="start">1</text>
+<text x="84" y="248" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="15" font-weight="600" fill="#e8e6e0" text-anchor="start">Verify the caller</text>
+<text x="84" y="272" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" font-weight="400" fill="#b8b6b0" text-anchor="start">api/auth.py — ES256 JWT, signing key fetched from JWKS</text>
+<rect x="770" y="237.5" width="370" height="46" rx="8" fill="#12121a" stroke="#2c2c3c" stroke-width="1"/>
+<circle cx="788" cy="260.5" r="4" fill="#7dd3a3"/>
+<text x="802" y="258.5" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="12.5" font-weight="600" fill="#e8e6e0" text-anchor="start">Supabase Auth</text>
+<text x="802" y="274.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" fill="#78767a" text-anchor="start">JWKS</text>
+<path d="M 648 260.5 L 755 260.5" stroke="#2c2c3c" stroke-width="1.5" fill="none" stroke-dasharray="4 4"/>
+<path d="M 755 256.0 L 755 265.0 L 762 260.5 Z" fill="#2c2c3c"/>
+<path d="M 340.0 304 L 340.0 311" stroke="#2c2c3c" stroke-width="1.6" fill="none"/>
+<path d="M 335.5 311 L 344.5 311 L 340.0 318 Z" fill="#2c2c3c"/>
+<rect x="40" y="321" width="600" height="100" rx="10" fill="#171722" stroke="#2c2c3c" stroke-width="1"/>
+<path d="M 41 332 L 41 410" stroke="#f07c9e" stroke-width="3" stroke-linecap="round"/>
+<text x="62" y="349" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" font-weight="700" fill="#f07c9e" text-anchor="start">2</text>
+<text x="84" y="349" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="15" font-weight="600" fill="#e8e6e0" text-anchor="start">Gate the request</text>
+<text x="84" y="373" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" font-weight="400" fill="#b8b6b0" text-anchor="start">begin_ask() — ownership + plan + quota in ONE round trip</text>
+<text x="84" y="392" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" font-weight="400" fill="#b8b6b0" text-anchor="start">ownership settles before the counter moves</text>
+<rect x="770" y="348.0" width="370" height="46" rx="8" fill="#12121a" stroke="#2c2c3c" stroke-width="1"/>
+<circle cx="788" cy="371.0" r="4" fill="#7dd3a3"/>
+<text x="802" y="369.0" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="12.5" font-weight="600" fill="#e8e6e0" text-anchor="start">Supabase Postgres</text>
+<text x="802" y="385.0" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" fill="#78767a" text-anchor="start">begin_ask()</text>
+<path d="M 648 371.0 L 755 371.0" stroke="#2c2c3c" stroke-width="1.5" fill="none" stroke-dasharray="4 4"/>
+<path d="M 755 366.5 L 755 375.5 L 762 371.0 Z" fill="#2c2c3c"/>
+<path d="M 340.0 424 L 340.0 431" stroke="#2c2c3c" stroke-width="1.6" fill="none"/>
+<path d="M 335.5 431 L 344.5 431 L 340.0 438 Z" fill="#2c2c3c"/>
+<rect x="40" y="441" width="600" height="100" rx="10" fill="#171722" stroke="#2c2c3c" stroke-width="1"/>
+<path d="M 41 452 L 41 530" stroke="#f5b57c" stroke-width="3" stroke-linecap="round"/>
+<text x="62" y="469" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" font-weight="700" fill="#f5b57c" text-anchor="start">3</text>
+<text x="84" y="469" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="15" font-weight="600" fill="#e8e6e0" text-anchor="start">Hybrid retrieval</text>
+<text x="84" y="493" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" font-weight="400" fill="#b8b6b0" text-anchor="start">BM25 over 13,280 chunks, in-process  +  Chroma vector search</text>
+<text x="84" y="512" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" font-weight="400" fill="#b8b6b0" text-anchor="start">RRF fusion (k=60) → top 20 candidates</text>
+<rect x="770" y="468.0" width="370" height="46" rx="8" fill="#12121a" stroke="#2c2c3c" stroke-width="1"/>
+<circle cx="788" cy="491.0" r="4" fill="#6aa8ff"/>
+<text x="802" y="489.0" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="12.5" font-weight="600" fill="#e8e6e0" text-anchor="start">OpenAI</text>
+<text x="802" y="505.0" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" fill="#78767a" text-anchor="start">text-embedding-3-small</text>
+<path d="M 648 491.0 L 755 491.0" stroke="#2c2c3c" stroke-width="1.5" fill="none" stroke-dasharray="4 4"/>
+<path d="M 755 486.5 L 755 495.5 L 762 491.0 Z" fill="#2c2c3c"/>
+<path d="M 340.0 544 L 340.0 551" stroke="#2c2c3c" stroke-width="1.6" fill="none"/>
+<path d="M 335.5 551 L 344.5 551 L 340.0 558 Z" fill="#2c2c3c"/>
+<rect x="40" y="561" width="600" height="100" rx="10" fill="#171722" stroke="#2c2c3c" stroke-width="1"/>
+<path d="M 41 572 L 41 650" stroke="#f5b57c" stroke-width="3" stroke-linecap="round"/>
+<text x="62" y="589" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" font-weight="700" fill="#f5b57c" text-anchor="start">4</text>
+<text x="84" y="589" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="15" font-weight="600" fill="#e8e6e0" text-anchor="start">Rerank</text>
+<text x="84" y="613" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" font-weight="400" fill="#b8b6b0" text-anchor="start">cross-encoder reads (query, chunk) pairs → top 20 becomes top 5</text>
+<text x="84" y="632" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" font-weight="400" fill="#b8b6b0" text-anchor="start">fails safe: on Cohere error, keeps RRF order and drops the score</text>
+<rect x="770" y="588.0" width="370" height="46" rx="8" fill="#12121a" stroke="#2c2c3c" stroke-width="1"/>
+<circle cx="788" cy="611.0" r="4" fill="#8b5cf6"/>
+<text x="802" y="609.0" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="12.5" font-weight="600" fill="#e8e6e0" text-anchor="start">Cohere</text>
+<text x="802" y="625.0" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" fill="#78767a" text-anchor="start">rerank-english-v3.0</text>
+<path d="M 648 611.0 L 755 611.0" stroke="#2c2c3c" stroke-width="1.5" fill="none" stroke-dasharray="4 4"/>
+<path d="M 755 606.5 L 755 615.5 L 762 611.0 Z" fill="#2c2c3c"/>
+<path d="M 340.0 664 L 340.0 671" stroke="#2c2c3c" stroke-width="1.6" fill="none"/>
+<path d="M 335.5 671 L 344.5 671 L 340.0 678 Z" fill="#2c2c3c"/>
+<rect x="40" y="681" width="600" height="100" rx="10" fill="#171722" stroke="#2c2c3c" stroke-width="1"/>
+<path d="M 41 692 L 41 770" stroke="#2ca190" stroke-width="3" stroke-linecap="round"/>
+<text x="62" y="709" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" font-weight="700" fill="#2ca190" text-anchor="start">5</text>
+<text x="84" y="709" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="15" font-weight="600" fill="#e8e6e0" text-anchor="start">Generate</text>
+<text x="84" y="733" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" font-weight="400" fill="#b8b6b0" text-anchor="start">citation-strict prompt → answer with inline [N] markers</text>
+<text x="84" y="752" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" font-weight="400" fill="#b8b6b0" text-anchor="start">parse [N] → cited sources; confidence = top rerank score</text>
+<rect x="770" y="708.0" width="370" height="46" rx="8" fill="#12121a" stroke="#2c2c3c" stroke-width="1"/>
+<circle cx="788" cy="731.0" r="4" fill="#6aa8ff"/>
+<text x="802" y="729.0" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="12.5" font-weight="600" fill="#e8e6e0" text-anchor="start">OpenAI</text>
+<text x="802" y="745.0" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" fill="#78767a" text-anchor="start">gpt-4o-mini</text>
+<path d="M 648 731.0 L 755 731.0" stroke="#2c2c3c" stroke-width="1.5" fill="none" stroke-dasharray="4 4"/>
+<path d="M 755 726.5 L 755 735.5 L 762 731.0 Z" fill="#2c2c3c"/>
+<path d="M 340.0 784 L 340.0 791" stroke="#2c2c3c" stroke-width="1.6" fill="none"/>
+<path d="M 335.5 791 L 344.5 791 L 340.0 798 Z" fill="#2c2c3c"/>
+<rect x="40" y="801" width="600" height="81" rx="10" fill="#171722" stroke="#2c2c3c" stroke-width="1"/>
+<path d="M 41 812 L 41 871" stroke="#78767a" stroke-width="3" stroke-linecap="round"/>
+<text x="62" y="829" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" font-weight="700" fill="#78767a" text-anchor="start">6</text>
+<text x="84" y="829" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="15" font-weight="600" fill="#e8e6e0" text-anchor="start">Persist</text>
+<text x="84" y="853" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" font-weight="400" fill="#b8b6b0" text-anchor="start">save_messages() — non-fatal, logged; /ask refunds the quota on failure</text>
+<rect x="770" y="818.5" width="370" height="46" rx="8" fill="#12121a" stroke="#2c2c3c" stroke-width="1"/>
+<circle cx="788" cy="841.5" r="4" fill="#7dd3a3"/>
+<text x="802" y="839.5" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="12.5" font-weight="600" fill="#e8e6e0" text-anchor="start">Supabase Postgres</text>
+<text x="802" y="855.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" fill="#78767a" text-anchor="start">messages</text>
+<path d="M 648 841.5 L 755 841.5" stroke="#2c2c3c" stroke-width="1.5" fill="none" stroke-dasharray="4 4"/>
+<path d="M 755 837.0 L 755 846.0 L 762 841.5 Z" fill="#2c2c3c"/>
+<path d="M 340.0 885 L 340.0 902" stroke="#f07c9e" stroke-width="1.6"/>
+<path d="M 335.5 902 L 344.5 902 L 340.0 909 Z" fill="#f07c9e"/>
+<text x="354.0" y="904" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" font-weight="400" fill="#f07c9e" text-anchor="start">200  ·  answer, sources[], confidence, followups[]</text>
+<text x="770" y="904" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" font-weight="400" fill="#78767a" text-anchor="start">dashed = network call off the box</text>
+</svg>

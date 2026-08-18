@@ -10,6 +10,8 @@ __pycache__/
 rag-dataset/data/raw/
 rag-dataset/data/processed/docs.jsonl
 rough.ipynb
+# README assets — never COPYied into the image, so keep them out of the build context.
+docs/
 # Frontend ships to Vercel, not into this image — keeps node_modules/dist out of the build context.
 frontend/
 .git/

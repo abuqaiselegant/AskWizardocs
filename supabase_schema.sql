@@ -217,3 +217,132 @@ $$;
 -- A caller with the anon key could otherwise refund their own quota forever.
 revoke execute on function public.refund_query(uuid) from public, anon, authenticated;
 grant  execute on function public.refund_query(uuid) to service_role;
+
+
+-- ============================================================
+-- begin_ask — the whole /ask preamble in one round trip
+-- ============================================================
+-- /ask used to make four sequential REST calls before any work started:
+-- workspace lookup, chat lookup (ownership), plan read, then consume_query.
+-- Each is a separate TLS request. This does all four in one, preserving the
+-- ordering that matters: ownership is decided BEFORE the counter moves, so a
+-- request that is about to be refused never consumes the allowance.
+--
+-- The free-tier limit deliberately stays in Python (FREE_QUERY_LIMIT) rather
+-- than being duplicated here — this returns the count and lets the caller judge.
+create or replace function public.begin_ask(p_user_id uuid, p_chat_id uuid default null)
+returns table (owns_chat bool, plan text, queries_used int)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_workspace uuid;
+  v_owns      bool;
+  v_plan      text;
+  v_count     int;
+begin
+  select w.id into v_workspace
+    from public.workspaces w
+   where w.owner_id = p_user_id
+   order by w.created_at asc
+   limit 1;
+
+  if p_chat_id is null then
+    v_owns := true;
+  else
+    select exists (
+      select 1 from public.chats c
+       where c.id = p_chat_id and c.workspace_id = v_workspace
+    ) into v_owns;
+  end if;
+
+  select up.plan into v_plan from public.users_profile up where up.id = p_user_id;
+  v_plan := coalesce(v_plan, 'free');
+
+  if not v_owns then
+    select qu.count into v_count
+      from public.query_usage qu
+     where qu.user_id = p_user_id
+       and qu.period_start = date_trunc('month', now())::date;
+    return query select v_owns, v_plan, coalesce(v_count, 0);
+    return;
+  end if;
+
+  insert into public.query_usage (user_id, period_start, count)
+  values (p_user_id, date_trunc('month', now())::date, 1)
+  on conflict (user_id, period_start)
+  do update set count = query_usage.count + 1
+  returning count into v_count;
+
+  return query select v_owns, v_plan, v_count;
+end;
+$$;
+
+-- SECURITY DEFINER taking p_user_id as an argument: anyone able to call this
+-- could burn any user's quota and probe chat ownership. Same PUBLIC caveat as
+-- consume_query — anon inherits EXECUTE from PUBLIC.
+revoke execute on function public.begin_ask(uuid, uuid) from public, anon, authenticated;
+grant  execute on function public.begin_ask(uuid, uuid) to service_role;
+
+-- ============================================================
+-- create_chat — insert first, then prune, in one transaction
+-- ============================================================
+-- api/db.py used to delete the messages falling out of the 2-chat window and
+-- any chat past the 10-chat cap, and only THEN insert the new chat: a failed
+-- insert destroyed history and produced nothing. It was also four
+-- unsynchronised REST calls, so two browser tabs could both pass the cap check.
+-- Here the insert happens first and the whole thing is one statement block, so
+-- the row locks serialise concurrent callers.
+create or replace function public.create_chat(p_workspace_id uuid, p_title text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_new_id uuid;
+begin
+  insert into public.chats (workspace_id, title)
+  values (p_workspace_id, left(coalesce(p_title, 'New conversation'), 80))
+  returning id into v_new_id;
+
+  -- Messages are kept only for the 2 most recent chats. Bookmarked answers
+  -- survive: a saved answer that evaporates is not saved. Sweeping every chat
+  -- past position 2 rather than just the one that moved makes this self-healing
+  -- if a previous prune was ever interrupted.
+  delete from public.messages m
+   using (
+     select c.id
+       from public.chats c
+      where c.workspace_id = p_workspace_id
+      order by c.created_at desc
+      offset 2
+   ) stale
+   where m.chat_id = stale.id
+     and not m.bookmarked;
+
+  -- 10-chat cap. A chat holding a bookmark is kept, which makes the cap soft
+  -- for anyone who saves answers — deliberate, and cheaper than losing them.
+  delete from public.chats c
+   where c.workspace_id = p_workspace_id
+     and c.id in (
+       select c2.id
+         from public.chats c2
+        where c2.workspace_id = p_workspace_id
+        order by c2.created_at desc
+        offset 10
+     )
+     and not exists (
+       select 1 from public.messages m
+        where m.chat_id = c.id and m.bookmarked
+     );
+
+  return v_new_id;
+end;
+$$;
+
+-- Takes p_workspace_id as an argument, so an anon caller could otherwise create
+-- chats in — and prune — any workspace.
+revoke execute on function public.create_chat(uuid, text) from public, anon, authenticated;
+grant  execute on function public.create_chat(uuid, text) to service_role;

@@ -89,10 +89,13 @@ class AskResponse(BaseModel):
 def ask_endpoint(request: AskRequest, user_id: str = Depends(get_current_user)):
     if not request.question.strip():
         raise HTTPException(status_code=400, detail="question must not be empty")
-    # Checked before the quota is spent and before any paid API call.
-    if request.chat_id and not db.chat_belongs_to_user(request.chat_id, user_id):
+    # Ownership, plan and quota in one round trip (begin_ask in the schema).
+    # Ownership is still settled before the quota is spent and before any paid
+    # API call — that ordering lives inside the function now.
+    gate = db.start_ask(user_id, request.chat_id)
+    if gate == "not_found":
         raise HTTPException(status_code=404, detail="Chat not found")
-    if db.reserve_query(user_id):
+    if gate == "over_limit":
         raise HTTPException(status_code=402, detail="Monthly query limit reached. Upgrade to Pro.")
     history = [{"role": t.role, "content": t.content} for t in request.history]
     try:

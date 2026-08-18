@@ -67,60 +67,25 @@ def _first_workspace(user_id: str) -> str | None:
     return rows[0]["id"] if rows else None
 
 
-def _without_bookmarks(chat_ids: list[str]) -> list[str]:
-    """Filter out chats that hold at least one bookmarked message.
-
-    One request for the whole batch. On failure it returns the input unchanged —
-    the caller deletes, which is the pre-bookmark behaviour: better to fall back
-    to enforcing the cap than to let it stop working silently.
-    """
-    if not chat_ids:
-        return []
-    r = requests.get(_url("messages"), headers=_h(),
-                     params={"chat_id": f"in.({','.join(chat_ids)})",
-                             "bookmarked": "is.true", "select": "chat_id"})
-    if not r.ok:
-        return chat_ids
-    protected = {row["chat_id"] for row in r.json()}
-    return [cid for cid in chat_ids if cid not in protected]
-
-
 # ── chats ──────────────────────────────────────────────────────────────────────
 
 def create_chat(user_id: str, title: str) -> str | None:
+    """Create a chat and apply the caps, in one transaction.
+
+    The whole body lives in create_chat() in supabase_schema.sql — it inserts
+    before it prunes (the Python version did the reverse, so a failed insert
+    destroyed history for nothing) and the row locks serialise concurrent tabs.
+    """
     workspace_id = get_or_create_workspace(user_id)
     if not workspace_id:
         return None
 
-    # Existing chats, newest-first
-    r = requests.get(_url("chats"), headers=_h(),
-                     params={"workspace_id": f"eq.{workspace_id}",
-                             "select": "id", "order": "created_at.desc"})
-    chats = r.json() if r.ok else []
-
-    # Chat currently at position 2 will fall to position 3 → delete its messages.
-    # Bookmarked ones are kept: a saved answer that evaporates once you start two
-    # more conversations is not saved, and the profile tab would show a shrinking
-    # list nobody deleted.
-    if len(chats) >= 2:
-        requests.delete(_url("messages"), headers=_h(Prefer="return=minimal"),
-                        params={"chat_id": f"eq.{chats[1]['id']}",
-                                "bookmarked": "is.false"})
-
-    # Chats at position 10+ will be pushed out → delete (messages cascade).
-    # A chat holding a bookmark is skipped for the same reason, so the 10-chat
-    # cap is soft for anyone who saves answers. Deliberate: silently destroying
-    # saved work is worse than a user sitting slightly over a storage cap.
-    if len(chats) >= 10:
-        for chat_id in _without_bookmarks([c["id"] for c in chats[9:]]):
-            requests.delete(_url("chats"), headers=_h(Prefer="return=minimal"),
-                            params={"id": f"eq.{chat_id}"})
-
-    r = requests.post(_url("chats"), headers=_h(Prefer="return=representation"),
-                      json={"workspace_id": workspace_id, "title": title[:80]})
-    if r.ok and r.json():
-        return r.json()[0]["id"]
-    return None
+    r = requests.post(f"{_base()}/rest/v1/rpc/create_chat", headers=_h(),
+                      json={"p_workspace_id": workspace_id, "p_title": title})
+    if not r.ok:
+        return None
+    value = r.json()
+    return value if isinstance(value, str) else None
 
 
 def chat_belongs_to_user(chat_id: str, user_id: str) -> bool:
@@ -146,34 +111,34 @@ def chat_belongs_to_user(chat_id: str, user_id: str) -> bool:
 def get_chats(user_id: str) -> list:
     """This user's 10 most recent chats, each with its message_count.
 
+    One request: the embedded `workspaces!inner` turns the owner filter into a
+    join condition, and `messages(count)` is a PostgREST aggregate, so the
+    counts come back without a second round trip.
+
     The count exists so the client stops deciding by list position whether a
-    chat still has messages. That rule lives here (see create_chat) and used to
-    be re-derived in four places in the frontend, none of which would find out
-    if it changed. It is also no longer a yes/no question: a capped chat can
-    retain only its bookmarked answers, so the messages exist while the thread
-    does not.
+    chat still has messages. That rule lives in create_chat() and used to be
+    re-derived in four places in the frontend, none of which would find out if
+    it changed. It is also no longer a yes/no question: a capped chat can retain
+    only its bookmarked answers, so the messages exist while the thread does not.
     """
-    workspace_id = _first_workspace(user_id)
-    if not workspace_id:
-        return []
-
     r = requests.get(_url("chats"), headers=_h(),
-                     params={"workspace_id": f"eq.{workspace_id}",
-                             "select": "id,title,created_at",
+                     params={"select": "id,title,created_at,messages(count),"
+                                       "workspaces!inner(owner_id)",
+                             "workspaces.owner_id": f"eq.{user_id}",
                              "order": "created_at.desc", "limit": "10"})
-    chats = r.json() if r.ok else []
-    if not chats:
+    if not r.ok:
         return []
 
-    # One request for all ten. If it fails every count is 0, so chats read as
-    # title-only: reopening stops working, but nothing appends to a thread the
-    # UI cannot show — the safer direction to fail in.
-    ids = [c["id"] for c in chats]
-    r2 = requests.get(_url("messages"), headers=_h(),
-                      params={"chat_id": f"in.({','.join(ids)})", "select": "chat_id"})
-    counts = Counter(row["chat_id"] for row in r2.json()) if r2.ok else Counter()
-
-    return [{**c, "message_count": counts.get(c["id"], 0)} for c in chats]
+    chats = []
+    for row in r.json():
+        counts = row.get("messages") or [{}]
+        chats.append({
+            "id":            row["id"],
+            "title":         row["title"],
+            "created_at":    row["created_at"],
+            "message_count": counts[0].get("count", 0),
+        })
+    return chats
 
 
 # ── messages ───────────────────────────────────────────────────────────────────
@@ -307,6 +272,43 @@ def reserve_query(user_id: str) -> bool:
         # queries_used climb past the limit forever.
         refund_query(user_id)
     return over
+
+
+def begin_ask(user_id: str, chat_id: str | None) -> dict | None:
+    """Ownership + plan + quota consumption in one round trip.
+
+    None when the RPC is unavailable (migration not applied, Supabase down) —
+    start_ask() then falls back to the separate helpers, which all still exist
+    because other endpoints use them.
+    """
+    r = requests.post(f"{_base()}/rest/v1/rpc/begin_ask", headers=_h(),
+                      json={"p_user_id": user_id, "p_chat_id": chat_id})
+    if not r.ok:
+        return None
+    rows = r.json()
+    return rows[0] if isinstance(rows, list) and rows else None
+
+
+def start_ask(user_id: str, chat_id: str | None) -> str | None:
+    """Gate one /ask. None to proceed, else 'not_found' or 'over_limit'.
+
+    Ownership is decided before the counter moves, and a refusal is refunded, so
+    a blocked user's counter settles at exactly the limit rather than climbing
+    with every rejected attempt.
+    """
+    row = begin_ask(user_id, chat_id)
+
+    if row is None:
+        if chat_id and not chat_belongs_to_user(chat_id, user_id):
+            return "not_found"
+        return "over_limit" if reserve_query(user_id) else None
+
+    if not row["owns_chat"]:
+        return "not_found"          # begin_ask did not consume anything
+    if row["plan"] == "free" and row["queries_used"] > FREE_QUERY_LIMIT:
+        refund_query(user_id)
+        return "over_limit"
+    return None
 
 
 def get_queries_used(user_id: str) -> int:

@@ -15,7 +15,9 @@ The index lives in module scope: it is built once on import and every search()
 reuses it. Rebuilding per request would re-tokenise all 13,280 chunks.
 """
 
+import heapq
 import json
+
 from rank_bm25 import BM25Okapi
 
 CHUNKS_FILE = "rag-dataset/data/processed/chunks.jsonl"
@@ -60,19 +62,14 @@ def search(query: str, k: int = 10, source: str | None = None) -> list[dict]:
     tokenized_query = tokenize(query)
     scores = bm25_index.get_scores(tokenized_query)
 
-    sorted_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
+    # Rank only the top k rather than ordering all 13,280, and filter by source
+    # first so a filtered search doesn't rank rows it is about to discard.
+    candidates = range(len(scores))
+    if source:
+        candidates = [i for i in candidates if chunks[i].get("source") == source]
+    top = heapq.nlargest(k, candidates, key=lambda i: scores[i])
 
-    results = []
-    for idx in sorted_indices:
-        if source and chunks[idx].get("source") != source:
-            continue
-        chunk = chunks[idx].copy()
-        chunk["bm25_score"] = round(float(scores[idx]), 4)
-        results.append(chunk)
-        if len(results) >= k:
-            break
-
-    return results
+    return [{**chunks[i], "bm25_score": round(float(scores[i]), 4)} for i in top]
 
 
 # ── Build index once when module is imported ──────────────────────────────────

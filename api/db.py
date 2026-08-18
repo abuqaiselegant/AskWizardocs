@@ -216,20 +216,6 @@ def _current_period() -> str:
 FREE_QUERY_LIMIT = 100
 
 
-def _consume_query(user_id: str) -> int | None:
-    """Atomically add 1 to this month's counter, returning the new total.
-
-    None means the RPC is unavailable (migration not applied, or Supabase is
-    down) — callers fall back to the read-then-write path.
-    """
-    r = requests.post(f"{_base()}/rest/v1/rpc/consume_query", headers=_h(),
-                      json={"p_user_id": user_id})
-    if not r.ok:
-        return None
-    value = r.json()
-    return value if isinstance(value, int) else None
-
-
 def refund_query(user_id: str) -> int | None:
     """Give one query back. Returns the new total, or None if unavailable.
 
@@ -243,65 +229,25 @@ def refund_query(user_id: str) -> int | None:
     return value if isinstance(value, int) else None
 
 
-def reserve_query(user_id: str) -> bool:
-    """Consume one query from this month's allowance. True = over the limit.
+def start_ask(user_id: str, chat_id: str | None) -> str | None:
+    """Gate one /ask. None to proceed, else 'not_found', 'over_limit', 'unavailable'.
 
-    Counting and checking are a single statement (see consume_query() in
-    supabase_schema.sql) so parallel requests cannot each pass a stale check.
-    The query is spent up front; /ask refunds it if the pipeline then fails.
-    A refusal is refunded here, so a blocked user's counter settles at exactly
-    the limit instead of climbing with every rejected attempt. Paid plans are
-    metered but never blocked.
-    """
-    plan = get_plan(user_id)
-
-    used = _consume_query(user_id)
-    if used is None:
-        # No atomic path available — degrade to the racy one rather than
-        # dropping the count entirely.
-        increment_query_count(user_id)
-        used = get_queries_used(user_id)
-
-    if plan != "free":
-        return False
-
-    over = used > FREE_QUERY_LIMIT
-    if over:
-        # Charging for a request that is about to be refused would make
-        # queries_used climb past the limit forever.
-        refund_query(user_id)
-    return over
-
-
-def begin_ask(user_id: str, chat_id: str | None) -> dict | None:
-    """Ownership + plan + quota consumption in one round trip.
-
-    None when the RPC is unavailable (migration not applied, Supabase down) —
-    start_ask() then falls back to the separate helpers, which all still exist
-    because other endpoints use them.
+    One round trip: begin_ask() in supabase_schema.sql does the workspace
+    lookup, the ownership check, the plan read and the quota increment together,
+    in that order — so ownership settles before the counter moves and a request
+    about to be refused never spends the allowance. A refusal is refunded, which
+    keeps a blocked user's counter at exactly the limit rather than climbing with
+    every rejected attempt. Paid plans are metered but never blocked.
     """
     r = requests.post(f"{_base()}/rest/v1/rpc/begin_ask", headers=_h(),
                       json={"p_user_id": user_id, "p_chat_id": chat_id})
-    if not r.ok:
-        return None
-    rows = r.json()
-    return rows[0] if isinstance(rows, list) and rows else None
+    rows = r.json() if r.ok else None
+    if not isinstance(rows, list) or not rows:
+        # The RPC is missing or erroring. Nothing was consumed, so there is
+        # nothing to refund — the caller turns this into a 503.
+        return "unavailable"
 
-
-def start_ask(user_id: str, chat_id: str | None) -> str | None:
-    """Gate one /ask. None to proceed, else 'not_found' or 'over_limit'.
-
-    Ownership is decided before the counter moves, and a refusal is refunded, so
-    a blocked user's counter settles at exactly the limit rather than climbing
-    with every rejected attempt.
-    """
-    row = begin_ask(user_id, chat_id)
-
-    if row is None:
-        if chat_id and not chat_belongs_to_user(chat_id, user_id):
-            return "not_found"
-        return "over_limit" if reserve_query(user_id) else None
-
+    row = rows[0]
     if not row["owns_chat"]:
         return "not_found"          # begin_ask did not consume anything
     if row["plan"] == "free" and row["queries_used"] > FREE_QUERY_LIMIT:
@@ -316,23 +262,6 @@ def get_queries_used(user_id: str) -> int:
                              "period_start": f"eq.{_current_period()}",
                              "select": "count"})
     return r.json()[0]["count"] if r.ok and r.json() else 0
-
-
-def increment_query_count(user_id: str):
-    period = _current_period()
-    r = requests.get(_url("query_usage"), headers=_h(),
-                     params={"user_id": f"eq.{user_id}",
-                             "period_start": f"eq.{period}",
-                             "select": "count"})
-    if r.ok and r.json():
-        current = r.json()[0]["count"]
-        requests.patch(_url("query_usage"), headers=_h(Prefer="return=minimal"),
-                       params={"user_id": f"eq.{user_id}",
-                               "period_start": f"eq.{period}"},
-                       json={"count": current + 1})
-    else:
-        requests.post(_url("query_usage"), headers=_h(Prefer="return=minimal"),
-                      json={"user_id": user_id, "count": 1, "period_start": period})
 
 
 def get_plan(user_id: str) -> str:

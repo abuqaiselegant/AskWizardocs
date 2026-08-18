@@ -152,8 +152,15 @@ create trigger on_auth_user_created
   for each row execute procedure public.handle_new_user();
 
 -- ============================================================
--- consume_query — atomic monthly quota counter
+-- consume_query — atomic monthly quota counter  [NO LONGER CALLED]
 -- ============================================================
+-- Superseded by begin_ask() below, which does this increment as part of one
+-- round trip. api/db.py called this only from a fallback path that no longer
+-- exists. Left in place because removing it means a migration against the live
+-- database, not an edit here — drop it with:
+--     drop function if exists public.consume_query(uuid);
+-- Nothing in the application will notice.
+--
 -- api/db.py used to read the count, compare it to the limit, then write it
 -- back. Requests fired in parallel all read the same value before any write
 -- landed, so the 100/month cap could be walked past. The insert below does

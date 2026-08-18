@@ -100,6 +100,13 @@ def ask_endpoint(request: AskRequest, user_id: str = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Chat not found")
     if gate == "over_limit":
         raise HTTPException(status_code=402, detail="Monthly query limit reached. Upgrade to Pro.")
+    if gate == "unavailable":
+        # The quota could not be reserved, so nothing was spent and nothing is
+        # owed back. Refusing here is the safe direction: proceeding would serve
+        # an unmetered answer to every caller for as long as the RPC stays down.
+        log.error("begin_ask unavailable; refused /ask for %s", user_id)
+        raise HTTPException(status_code=503,
+                            detail="Service temporarily unavailable — your query was not counted.")
     history = [{"role": t.role, "content": t.content} for t in request.history]
     try:
         result = ask(request.question, history, source=request.source)
@@ -153,6 +160,10 @@ def ask_stream_endpoint(request: AskRequest, user_id: str = Depends(get_current_
         raise HTTPException(status_code=404, detail="Chat not found")
     if gate == "over_limit":
         raise HTTPException(status_code=402, detail="Monthly query limit reached. Upgrade to Pro.")
+    if gate == "unavailable":
+        log.error("begin_ask unavailable; refused /ask/stream for %s", user_id)
+        raise HTTPException(status_code=503,
+                            detail="Service temporarily unavailable — your query was not counted.")
 
     history = [{"role": t.role, "content": t.content} for t in request.history]
 
